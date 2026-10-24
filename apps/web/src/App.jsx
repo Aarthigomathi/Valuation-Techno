@@ -166,30 +166,30 @@ function Dashboard() {
       <div className="row"><div><label>Make</label><input value={jobForm.make} onChange={(e) => setJobForm({ ...jobForm, make: e.target.value })} /></div><div><label>Model</label><input value={jobForm.model} onChange={(e) => setJobForm({ ...jobForm, model: e.target.value })} /></div></div>
       <div className="row"><div><label>Year</label><input type="number" value={jobForm.year} onChange={(e) => setJobForm({ ...jobForm, year: Number(e.target.value) })} /></div><div><label>Vehicle GPS (lat, lng)</label><input value={`${jobForm.vehicleLat}, ${jobForm.vehicleLng}`} onChange={(e) => { const [a, b] = e.target.value.split(',').map(Number); setJobForm({ ...jobForm, vehicleLat: a, vehicleLng: b }); }} /></div></div>
       <Btn action={async () => {
-        if (!jobForm.regNumber || jobForm.regNumber.trim().length < 6) throw new Error('Correct registration number podunga (eg: TN38AB1234)');
-        if (!jobForm.make.trim() || !jobForm.model.trim()) throw new Error('Vehicle Make & Model podunga');
-        if (!jobForm.year || jobForm.year < 1990) throw new Error('Correct vehicle year podunga');
+        if (!jobForm.regNumber || jobForm.regNumber.trim().length < 6) throw new Error('Please enter a valid registration number (e.g., TN38AB1234)');
+        if (!jobForm.make.trim() || !jobForm.model.trim()) throw new Error('Please enter the vehicle make and model');
+        if (!jobForm.year || jobForm.year < 1990) throw new Error('Please enter a valid vehicle year');
         const j = await api('/jobs', { method: 'POST', body: JSON.stringify(jobForm) });
         setCreatedJob(j); await reload(); setTab('jobs'); setSelId(j.id);
-        setBanner(`✓ ${j.regNumber} verified & broadcast — inspector-ku LIVE poiruchu`);
+        setBanner(`✓ ${j.regNumber} verified and broadcast successfully. Inspectors have been notified in real time.`);
         setTimeout(() => document.getElementById('created-job-result')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 250);
       }}>Verify Vehicle + Broadcast →</Btn>
       <p className="muted">On create: VAHAN RC + IIB insurance/claims check runs, seeker fee posts, nearby inspectors get it LIVE.</p>
       {createdJob && <div id="created-job-result" className="ok" style={{ textAlign: 'left' }}>
-        <b>✅ JOB CREATE AAYIDUCHU!</b><br/>
-        🚗 {createdJob.make} {createdJob.model} · {createdJob.regNumber} · Status: <b>{createdJob.status}</b> (Inspectors-ku live broadcast poiruchu)<br/>
+        <b>✅ JOB CREATED SUCCESSFULLY!</b><br/>
+        🚗 {createdJob.make} {createdJob.model} · {createdJob.regNumber} · Status: <b>{createdJob.status}</b> (live broadcast sent to eligible inspectors)<br/>
         <b>Verification Results:</b><br/>
         {(createdJob.verification?.checks || []).map((c) => <span key={c.name}>• {c.name}: <b>{c.status}</b> — {c.detail}<br/></span>)}
-        📍 <b>Nearby Inspectors:</b> {(createdJob.eligibleInspectors || []).length ? createdJob.eligibleInspectors.map((i) => `${i.name} ★${i.rating} (${i.distanceKm} km)`).join(' · ') : 'Radius-kulla yaarum illa — Admin radius check pannunga'}<br/>
-        <span className="muted">Ippo Inspector login panna (demo: inspector@valuation.techno) indha job LIVE-a theriyum → Accept panni inspection start pannalam. Illa keela "All Jobs"-la Open panni details paarunga.</span>
-        <div style={{ marginTop: 8 }}><Btn ghost action={async () => { setSelId(createdJob.id); setTimeout(() => document.getElementById('job-detail')?.scrollIntoView({ behavior: 'smooth' }), 200); }}>📄 Full Job Details Paarunga ↓</Btn></div>
+        📍 <b>Nearby Inspectors:</b> {(createdJob.eligibleInspectors || []).length ? createdJob.eligibleInspectors.map((i) => `${i.name} ★${i.rating} (${i.distanceKm} km)`).join(' · ') : 'No inspectors are currently available within the broadcast radius. Please ask the administrator to review the radius settings.'}<br/>
+        <span className="muted">Log in as an Inspector (demo: inspector@valuation.techno) to view this job in real time, accept it, and start the inspection. Alternatively, open the job from the 'All Jobs' section below to view its full details.</span>
+        <div style={{ marginTop: 8 }}><Btn ghost action={async () => { setSelId(createdJob.id); setTimeout(() => document.getElementById('job-detail')?.scrollIntoView({ behavior: 'smooth' }), 200); }}>📄 View Full Job Details ↓</Btn></div>
       </div>}</div>
     {toSettle.length > 0 && <div className="card"><h3>💰 Ready to Settle ({toSettle.length})</h3>{toSettle.map((j) => <p key={j.id}>{j.regNumber} · Final {inr(j.valuation?.finalValuation)} <Btn green action={async () => { await api(`/jobs/${j.id}/settle`, { method: 'POST' }); await reload(); }}>Settle</Btn> <Btn ghost action={async () => open(j)}>Open</Btn></p>)}</div>}</>}
 
     {user.role === 'INSPECTOR' && <><div className="grid"><div className="card"><div className="muted">Available near me</div><div className="stat">{available.length}</div></div><div className="card"><div className="muted">My earnings (pay + bonus)</div><div className="stat">{inr(earnings)}</div></div><div className="card"><div className="muted">My rating</div><div className="stat">★ {user.rating}</div><div className="muted">{user.status}</div></div></div>
-    {jobs.filter((j) => j.assignedInspector?.id === user.id).length > 0 && <div className="card" style={{border:'2px solid #15803d'}}><h2>✅ My Assigned Jobs — Inspection inga dhaan pannanum</h2>
+    {jobs.filter((j) => j.assignedInspector?.id === user.id).length > 0 && <div className="card" style={{border:'2px solid #15803d'}}><h2>✅ My Assigned Jobs — Start or Continue Inspection</h2>
       {jobs.filter((j) => j.assignedInspector?.id === user.id).map((j) => <p key={j.id}><b>{j.make} {j.model}</b> · {j.regNumber} · <span className="pill">{j.status}</span> <Btn green action={async () => open(j)}>{['ASSIGNED','INSPECTION_IN_PROGRESS'].includes(j.status) ? '🔍 Inspection Start / Continue →' : 'Open →'}</Btn></p>)}
-      <p className="muted">Accept panna job "Jobs Near You"-la irundhu poyidum (exclusive assignment) — inga dhaan varum. Open panni Start → photos/manual valuation submit pannunga.</p></div>}
+      <p className="muted">Once you accept a job, it is removed from "Jobs Near You" because the assignment is exclusive. It will appear here. Open the job, start the inspection, upload the photos, and submit your manual valuation.</p></div>}
     <div className="card"><h2>📍 Jobs Near You — First to Accept Wins (exclusive)</h2>{available.length === 0 && <p className="muted">No open jobs in your radius right now. New bank jobs appear here LIVE — keep this page open.</p>}
       {available.map((j) => { const me = j.eligibleInspectors?.find((x) => x.id === user.id); return <p key={j.id}><b>{j.make} {j.model} ({j.year})</b> · {j.regNumber} · {me ? `${me.distanceKm} km away` : 'check eligibility'} <Btn action={async () => { await api(`/jobs/${j.id}/accept`, { method: 'POST' }); await reload(); setSelId(j.id); setBanner(`✓ You are assigned to ${j.regNumber}`); }}>✓ Accept Job</Btn> <Btn ghost action={async () => open(j)}>Details</Btn></p>; })}</div></>}
 

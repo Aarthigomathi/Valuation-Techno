@@ -6,7 +6,7 @@ export class ErrorBoundary extends Component {
   constructor(props) { super(props); this.state = { err: null }; }
   static getDerivedStateFromError(err) { return { err }; }
   render() {
-    if (this.state.err) return <div className="card"><h3>⚠️ Indha panel load aagala</h3><p className="muted">{String(this.state.err.message || this.state.err)}</p><button onClick={() => this.setState({ err: null })}>↺ Thirumba Try Pannunga</button></div>;
+    if (this.state.err) return <div className="card"><h3>⚠️ This panel could not be loaded</h3><p className="muted">{String(this.state.err.message || this.state.err)}</p><button onClick={() => this.setState({ err: null })}>↺ Try Again</button></div>;
     return this.props.children;
   }
 }
@@ -75,7 +75,7 @@ export function AnalyticsPanel() {
   // ALL hooks must run before any early return — calling useCountUp after `if (!a)` crashes React (white screen).
   const jobs = useCountUp(a?.jobsTotal ?? 0); const settled = useCountUp(a?.settledValue ?? 0);
   useEffect(() => { const load = () => api('/analytics').then((d) => { setA(d); setLoadErr(''); }).catch((e) => setLoadErr(e.message)); load(); const id = setInterval(load, 15000); return () => clearInterval(id); }, []);
-  if (loadErr) return <div className="card"><h3>⚠️ AI Analytics load aagala</h3><p className="muted">{loadErr}</p></div>;
+  if (loadErr) return <div className="card"><h3>⚠️ AI Analytics could not be loaded</h3><p className="muted">{loadErr}</p></div>;
   if (!a) return <p className="muted">⏳ Loading AI analytics…</p>;
   const fraud = a.fraud || { low: 0, medium: 0, high: 0, avgScore: 0 }; const leaderboard = a.leaderboard || [];
   const bar = (label, n, max, color) => <div key={label}><label>{label}: {n}</label><div style={{ background: '#e2e8f0', borderRadius: 8, height: 12 }}><div style={{ width: `${max ? (n / max) * 100 : 0}%`, background: color, height: 12, borderRadius: 8, transition: 'width 1s' }} /></div></div>;
