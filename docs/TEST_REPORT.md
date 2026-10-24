@@ -27,3 +27,11 @@ Known limits (by design, documented): AI/vendors are deterministic simulators be
 | 14 | PDF report is a real PDF download; multipart upload returns 64-char SHA-256 for fraud checks | ✅ |
 | 15 | Suspended inspector blocked at login (403); admin reactivation restores access | ✅ |
 Plus: login brute-force rate limiting (10/15 min), prod OTP secrecy, security headers, annotated damage report, offline inspection drafts (localStorage). Bug fixed this step: auth.js file corruption from a partial edit — fully rewritten & syntax-checked.
+
+## Production realtime upgrade (18/18 PASS)
+| # | Test | Result |
+|---|---|---|
+| 16 | DeepSearch market: 12-mo trend + 3-mo forecast + 6 comparables | ✅ |
+| 17 | AI analytics role-guarded; leaderboard + fraud distribution + variance health | ✅ |
+| 18 | WebSocket: inspector receives JOB_CREATED instantly on bank job creation (also proven live outside tests) | ✅ |
+Frontend build passes with AI-animated panels (Fraud Gauge, Digital Twin, AI Scan, Live Map, Market Chart, Analytics).

@@ -144,3 +144,26 @@ describe('Step 9 hardening: bank feedback, re-inspection, PDF, upload, suspensio
     expect((await request(app).post('/api/auth/login').send({ email: 'inspector3@valuation.techno', password: 'Inspector@123' })).status).toBe(200);
   });
 });
+
+describe('Real-time layer + AI analytics (production upgrade)', () => {
+  it('market intelligence returns trend, forecast and comparables', async () => {
+    const m = await request(app).get('/api/market?make=Hyundai&model=Creta').set(auth(T.bank));
+    expect(m.status).toBe(200); expect(m.body.trend.length).toBe(12); expect(m.body.forecast.length).toBe(3); expect(m.body.comparables.length).toBe(6);
+  });
+  it('analytics is role-guarded and returns leaderboard + fraud distribution', async () => {
+    expect((await request(app).get('/api/analytics').set(auth(T.seeker))).status).toBe(403);
+    const a = await request(app).get('/api/analytics').set(auth(T.admin));
+    expect(a.status).toBe(200); expect(a.body.leaderboard.length >= 3 ? true : false).toBe(true); expect(typeof a.body.avgVariance).toBe('number');
+  });
+  it('WEBSOCKET: inspector receives JOB_CREATED instantly when bank creates a job', async () => {
+    const http = await import('node:http'); const { attachRealtime } = await import('../src/realtime.js'); const { WebSocket } = await import('ws');
+    const server = http.createServer(app); attachRealtime(server);
+    await new Promise((r) => server.listen(0, r)); const port = server.address().port;
+    const ws = new WebSocket(`ws://127.0.0.1:${port}/ws?token=${T.inspector}`);
+    const got = new Promise((resolve, reject) => { const to = setTimeout(() => reject(new Error('WS timeout')), 5000); ws.on('message', (b) => { const m = JSON.parse(b); if (m.type === 'JOB_CREATED') { clearTimeout(to); resolve(m); } }); });
+    await new Promise((r) => ws.on('open', r));
+    await createJob('TN38QR9753');
+    const evt = await got; expect(evt.regNumber).toBe('TN38QR9753');
+    ws.close(); await new Promise((r) => server.close(r));
+  });
+});

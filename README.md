@@ -7,7 +7,7 @@ India's AI-powered Used Vehicle Valuation & FinTech platform — complete implem
 npm install
 npm run build      # builds React frontend
 npm start          # API + frontend on http://localhost:4000
-npm test           # 11 automated tests (Node test runner + Supertest)
+npm test           # 18 automated tests (Node test runner + Supertest + WebSocket)
 ```
 Open **http://localhost:4000** and use one-click demo logins (or passwords below).
 
@@ -29,7 +29,7 @@ Open **http://localhost:4000** and use one-click demo logins (or passwords below
 6. **Payments** — seeker fee → bank-to-platform → 20% commission + 80% provider margin; idempotent ledger + full audit trail + notifications. OTP/JWT auth included.
 
 ## Architecture
-React (Vite) frontend · Node 22 + Express API · SQLite (`node:sqlite`, zero native deps) · Zod validation · JWT/bcrypt.
+React (Vite) frontend · Node 22 + Express API + **WebSocket real-time layer (live job broadcast, valuation, rating & payment events — no refresh)** · SQLite (`node:sqlite`, zero native deps) · Zod validation · JWT/bcrypt · **AI-animated UI: vehicle Digital Twin, fraud gauge, AI vision scan, live broadcast map, DeepSearch forecast chart, AI analytics & inspector leaderboard** · full PDF coverage: `docs/FEATURE_MATRIX.md`.
 External/AI systems (VAHAN, IIB, DeepSearch, killfake.ai, YOLOv8, XGBoost, Razorpay) are deterministic simulators behind provider interfaces in `apps/api/src/services/providers.js` — swap in live vendor APIs or a Python FastAPI ML microservice without touching routes/UI. Rationale: `docs/TECH_STACK_DECISION.md`; full mapping: `docs/CASE_STUDY_ANALYSIS.md`; endpoints: `docs/API.md`; test evidence: `docs/TEST_REPORT.md`.
 
 ## Try the demo flow (5 minutes)

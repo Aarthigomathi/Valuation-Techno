@@ -7,6 +7,7 @@ import { uid, now, round2, clamp, haversineKm, variancePct, isGreen } from '../u
 import { requireAuth, requireRole, wrap } from '../middleware/auth.js';
 import { verifyVehicle, deepSearchMarketValue, analyzeDamage, analyzeFraud, computePlatformScore } from '../services/providers.js';
 import { fullReportHtml, summaryReportHtml } from '../services/report.js';
+import { publish } from '../realtime.js';
 
 const r = Router(); r.use(requireAuth);
 const getJob = (id) => db.prepare('SELECT * FROM jobs WHERE id=?').get(id);
@@ -61,6 +62,7 @@ r.post('/', requireRole('BANK'), wrap(async (req, res) => {
   addLedger({ jobId: id, type: 'SEEKER_FEE_TO_BANK', fromParty: b.seekerName, toParty: req.user.bankName || 'Bank', userId: req.user.id, amount: fee, ref: 'seeker-fee' });
   audit(id, req.user.id, 'JOB_CREATED_AND_BROADCAST', `${verification.regNumber} fee ₹${fee} mode ${mode}`);
   eligibleInspectors(getJob(id)).forEach((u) => notify(u.id, `New valuation job near you: ${verification.regNumber}`, `${b.make} ${b.model} · ${u.distanceKm} km away`));
+  publish({ type: 'JOB_CREATED', jobId: id, regNumber: verification.regNumber, roles: ['INSPECTOR', 'ADMIN', 'BANK'] });
   res.status(201).json(detail(getJob(id)));
 }));
 r.get('/', wrap(async (req, res) => {
@@ -82,7 +84,7 @@ r.post('/:id/accept', requireRole('INSPECTOR'), wrap(async (req, res) => {
     return res.status(403).json({ error: `Rating-priority window: top-rated inspector ${eligible[0]?.name} has priority until ${job.priorityUntil}` });
   const result = db.prepare("UPDATE jobs SET assignedInspectorId=?, status='ASSIGNED', updatedAt=? WHERE id=? AND status='BROADCAST'").run(req.user.id, now(), job.id);
   if (result.changes === 0) return res.status(409).json({ error: 'Job already assigned to another inspector (exclusive assignment)' });
-  audit(job.id, req.user.id, 'JOB_ACCEPTED', req.user.name); notify(job.bankId, `Inspector assigned: ${job.regNumber}`, `${req.user.name} accepted the job`);
+  audit(job.id, req.user.id, 'JOB_ACCEPTED', req.user.name); notify(job.bankId, `Inspector assigned: ${job.regNumber}`, `${req.user.name} accepted the job`); publish({ type: 'JOB_ASSIGNED', jobId: job.id, regNumber: job.regNumber, inspector: req.user.name, roles: ['BANK', 'ADMIN', 'INSPECTOR'] });
   res.json(detail(getJob(job.id)));
 }));
 r.post('/:id/start', requireRole('INSPECTOR'), wrap(async (req, res) => {
@@ -112,6 +114,7 @@ r.post('/:id/inspection', requireRole('INSPECTOR'), wrap(async (req, res) => {
     db.prepare("UPDATE jobs SET status='INSPECTION_IN_PROGRESS', updatedAt=? WHERE id=?").run(now(), job.id);
     throw e;
   }
+  publish({ type: 'VALUATION_READY', jobId: job.id, regNumber: job.regNumber, flag: valuation.flag, variancePct: valuation.variancePct, roles: ['BANK', 'ADMIN', 'INSPECTOR', 'LOAN_SEEKER'] });
   res.status(201).json({ ...detail(getJob(job.id)), valuation });
 }));
 r.post('/:id/analyze', requireRole('ADMIN', 'BANK'), wrap(async (req, res) => { const job = getJob(req.params.id); if (!job) return res.status(404).json({ error: 'Job not found' }); res.json({ valuation: runPipeline(job, req.user.id), ...detail(getJob(job.id)) }); }));
@@ -132,7 +135,7 @@ r.post('/:id/audit', requireRole('ADMIN'), wrap(async (req, res) => {
   db.prepare("UPDATE valuations SET finalValuation=?, status=?, auditJson=? WHERE jobId=?").run(finalValuation, b.action === 'APPROVE' ? 'AUDIT_APPROVED' : 'SENIOR_REVIEW_APPROVED', JSON.stringify({ by: req.user.id, action: b.action, note: b.note || '', at: now() }), job.id);
   db.prepare("UPDATE jobs SET status='REPORT_DELIVERED', updatedAt=? WHERE id=?").run(now(), job.id);
   db.prepare('UPDATE reports SET deliveredAt=? WHERE jobId=?').run(now(), job.id);
-  audit(job.id, req.user.id, 'AUDIT_' + b.action, `Final ₹${finalValuation}`); notify(job.bankId, `Audit approved: ${job.regNumber}`, `Final valuation ₹${finalValuation}`);
+  audit(job.id, req.user.id, 'AUDIT_' + b.action, `Final ₹${finalValuation}`); notify(job.bankId, `Audit approved: ${job.regNumber}`, `Final valuation ₹${finalValuation}`); publish({ type: 'AUDIT_APPROVED', jobId: job.id, regNumber: job.regNumber, finalValuation, roles: ['BANK', 'ADMIN', 'INSPECTOR', 'LOAN_SEEKER'] });
   res.json(detail(getJob(job.id)));
 }));
 
@@ -171,7 +174,7 @@ r.post('/:id/rate', requireRole('LOAN_SEEKER', 'BANK'), wrap(async (req, res) =>
   db.prepare('UPDATE users SET rating=?, ratingCount=?, ratingSum=?, status=? WHERE id=?').run(avg, count, sum, status, ins.id);
   if (composite >= 4.5) addLedger({ jobId: job.id, type: 'INSPECTOR_BONUS', fromParty: 'Valuation Techno', toParty: ins.name, userId: ins.id, amount: config.ratingBonus, ref: 'rating-bonus' });
   audit(job.id, req.user.id, 'INSPECTOR_RATED', `seeker ${seekerScore} platform ${platformScore} composite ${composite} status ${status}`);
-  notify(ins.id, 'New rating received', `Composite ${composite}/5 · Overall ${avg}/5 (${status})`);
+  notify(ins.id, 'New rating received', `Composite ${composite}/5 · Overall ${avg}/5 (${status})`); publish({ type: 'INSPECTOR_RATED', jobId: job.id, regNumber: job.regNumber, composite, roles: ['INSPECTOR', 'ADMIN', 'BANK'] });
   res.status(201).json({ seekerScore, platformScore, composite, inspectorRating: avg, inspectorStatus: status });
 }));
 
@@ -199,7 +202,7 @@ r.post('/:id/settle', requireRole('BANK', 'ADMIN'), wrap(async (req, res) => {
   addLedger({ jobId: job.id, type: 'PLATFORM_COMMISSION', fromParty: 'Valuation Techno', toParty: 'Platform', amount: commission, ref: 'commission' });
   addLedger({ jobId: job.id, type: 'PROVIDER_MARGIN', fromParty: 'Valuation Techno', toParty: 'Service Provider', amount: round2(fee - commission), ref: 'margin' });
   db.prepare("UPDATE jobs SET status='SETTLED', updatedAt=? WHERE id=?").run(now(), job.id);
-  audit(job.id, req.user.id, 'SETTLED', `fee ₹${fee} commission ₹${commission}`);
+  audit(job.id, req.user.id, 'SETTLED', `fee ₹${fee} commission ₹${commission}`); publish({ type: 'SETTLED', jobId: job.id, regNumber: job.regNumber, amount: fee, roles: ['BANK', 'ADMIN', 'INSPECTOR'] });
   res.json(detail(getJob(job.id)));
 }));
 export { detail, getJob };
