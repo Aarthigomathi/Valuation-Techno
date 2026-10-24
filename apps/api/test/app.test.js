@@ -167,3 +167,16 @@ describe('Real-time layer + AI analytics (production upgrade)', () => {
     ws.close(); await new Promise((r) => server.close(r));
   });
 });
+
+describe('Session transport fix (preview proxy strips Authorization)', () => {
+  it('accepts X-Auth-Token header and vt_token cookie, not just Bearer', async () => {
+    const login = await request(app).post('/api/auth/login').send({ email: 'admin@valuation.techno', password: 'Admin@123' });
+    expect(login.status).toBe(200);
+    const tok = login.body.token;
+    expect((login.headers['set-cookie'] || []).join(' ').includes('vt_token=')).toBe(true);
+    expect((await request(app).get('/api/jobs').set('X-Auth-Token', tok)).status).toBe(200);
+    expect((await request(app).get('/api/jobs').set('Cookie', `vt_token=${tok}`)).status).toBe(200);
+    const expired = await request(app).get('/api/jobs');
+    expect(expired.status).toBe(401);
+  });
+});

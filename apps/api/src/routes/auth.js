@@ -3,7 +3,7 @@ import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { db, publicUser, audit } from '../db.js';
 import { uid, now } from '../utils.js';
-import { sign, requireAuth, wrap } from '../middleware/auth.js';
+import { sign, requireAuth, wrap, setTokenCookie } from '../middleware/auth.js';
 const r = Router();
 const creds = z.object({ email: z.string().email(), password: z.string().min(6) });
 
@@ -17,7 +17,7 @@ r.post('/register', wrap(async (req, res) => {
   const id = uid();
   db.prepare('INSERT INTO users(id,role,name,email,phone,passwordHash,bankName,lat,lng,createdAt) VALUES(?,?,?,?,?,?,?,?,?,?)').run(id, b.role, b.name, b.email, b.phone || null, bcrypt.hashSync(b.password, 10), b.bankName || null, b.lat ?? null, b.lng ?? null, now());
   const user = db.prepare('SELECT * FROM users WHERE id=?').get(id);
-  audit(null, id, 'USER_REGISTERED', b.role); res.status(201).json({ token: sign(user), user: publicUser(user) });
+  audit(null, id, 'USER_REGISTERED', b.role); const tok = sign(user); setTokenCookie(req, res, tok); res.status(201).json({ token: tok, user: publicUser(user) });
 }));
 r.post('/login', wrap(async (req, res) => {
   const b = creds.parse(req.body); const rlKey = `${b.email.toLowerCase()}|${req.ip}`;
@@ -26,7 +26,7 @@ r.post('/login', wrap(async (req, res) => {
   if (!user || !bcrypt.compareSync(b.password, user.passwordHash)) { recordFailure(rlKey); return res.status(401).json({ error: 'Invalid email or password' }); }
   loginAttempts.delete(rlKey);
   if (user.status === 'SUSPENDED') return res.status(403).json({ error: 'Account suspended. Contact platform support.' });
-  res.json({ token: sign(user), user: publicUser(user) });
+  const tok = sign(user); setTokenCookie(req, res, tok); res.json({ token: tok, user: publicUser(user) });
 }));
 r.post('/otp/request', wrap(async (req, res) => {
   const { phone } = z.object({ phone: z.string().min(10) }).parse(req.body);
@@ -42,7 +42,8 @@ r.post('/otp/verify', wrap(async (req, res) => {
   if (!row || row.code !== code || new Date(row.expiresAt) < new Date()) return res.status(401).json({ error: 'Invalid or expired OTP' });
   const user = db.prepare('SELECT * FROM users WHERE phone=?').get(phone);
   if (!user) return res.status(404).json({ error: 'No account for this phone. Please register first.' });
-  res.json({ token: sign(user), user: publicUser(user) });
+  const tok = sign(user); setTokenCookie(req, res, tok); res.json({ token: tok, user: publicUser(user) });
 }));
+r.post('/logout', (req, res) => { res.setHeader('Set-Cookie', 'vt_token=; HttpOnly; Path=/; Max-Age=0'); res.json({ ok: true }); });
 r.get('/me', requireAuth, (req, res) => res.json({ user: publicUser(req.user) }));
 export default r;

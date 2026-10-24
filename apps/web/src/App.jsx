@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
-import { api, token, sessionUser, setSession, clearSession, inr, fmtDate, openAuthed } from './api.js';
+import { api, token, sessionUser, setSession, clearSession, inr, fmtDate, openAuthed, logoutApi } from './api.js';
 import { FraudGauge, CarTwin, AiScanPanel, MarketChart, LiveMap, AnalyticsPanel } from './components/Advanced.jsx';
 
 const PHASES = ['BROADCAST', 'ASSIGNED', 'INSPECTION_IN_PROGRESS', 'INSPECTION_SUBMITTED', 'AUDIT_REQUIRED', 'REPORT_DELIVERED', 'SETTLED'];
@@ -25,7 +25,7 @@ export function Btn({ action, children, className = '', green, danger, ghost }) 
 
 function Login() {
   const nav = useNavigate(); const [form, setForm] = useState({ email: '', password: '' }); const [reg, setReg] = useState({ name: '', email: '', password: '', phone: '', role: 'LOAN_SEEKER' });
-  const [err, setErr] = useState(''); const [msg, setMsg] = useState(''); const [mode, setMode] = useState('login'); const [otp, setOtp] = useState(null);
+  const [err, setErr] = useState(''); const [msg, setMsg] = useState(() => { const n = sessionStorage.getItem('vt_notice'); sessionStorage.removeItem('vt_notice'); return n || ''; }); const [mode, setMode] = useState('login'); const [otp, setOtp] = useState(null);
   const doLogin = async (email, password) => { const d = await api('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }); setSession(d.token, d.user); nav('/dashboard'); };
   const demos = [['🏦 Bank (HDFC)', 'bank@valuation.techno', 'Bank@123', 'Creates jobs, gets FULL report, settles'], ['🔍 Inspector Ravi ★4.6', 'inspector@valuation.techno', 'Inspector@123', 'Accepts jobs, inspects, gets instant pay'], ['🚗 Loan Seeker', 'seeker@valuation.techno', 'Seeker@123', 'Sees SUMMARY report, rates inspector'], ['🛡️ Platform Admin', 'admin@valuation.techno', 'Admin@123', 'Audits RED flags, controls platform']];
   return <div className="wrap"><div className="card login"><h1>Valuation Techno</h1><p className="muted">Smart Valuation. Safer Transactions — AI-powered used vehicle valuation & FinTech platform. <b>Each login opens a different dashboard.</b></p>
@@ -155,7 +155,7 @@ function Dashboard() {
   const earnings = ledger.filter((l) => ['INSPECTOR_INSTANT_PAY', 'INSPECTOR_BONUS'].includes(l.type)).reduce((s, l) => s + l.amount, 0);
   const open = (j) => { setSelId(j.id); document.getElementById('job-detail')?.scrollIntoView({ behavior: 'smooth' }); };
   return <div><header className="topbar" style={{ background: meta.color }}><div><div className="brand">{meta.icon} Valuation <span>Techno</span></div><div className="tag">{meta.title} · {meta.home}</div></div>
-    <div style={{ textAlign: 'right' }}>{user.name} · <b>{user.role}</b>{user.role === 'INSPECTOR' ? ` · ★ ${user.rating}` : ''}<br /><Btn ghost action={async () => { clearSession(); nav('/'); }}>Logout</Btn></div></header>
+    <div style={{ textAlign: 'right' }}>{user.name} · <b>{user.role}</b>{user.role === 'INSPECTOR' ? ` · ★ ${user.rating}` : ''}<br /><Btn ghost action={async () => { await logoutApi(); nav('/'); }}>Logout</Btn></div></header>
   <div className="wrap">{err && <div className="err">{err}</div>}{banner && <div className="ok">{banner} <Btn ghost action={async () => setBanner('')}>OK</Btn></div>}
     <div className="toastbar"><span className="live-dot"></span> {liveOn ? 'LIVE — real-time updates connected (no refresh needed)' : 'Connecting live channel…'}{liveEvents[0] ? ` · Latest: ${liveEvents[0].type} ${liveEvents[0].regNumber || ''}` : ''}</div>
 
