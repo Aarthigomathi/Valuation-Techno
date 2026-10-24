@@ -61,13 +61,73 @@ export function MarketChart({ make, model }) {
 }
 
 export function LiveMap({ job }) {
-  if (!job) return null; const els = job.eligibleInspectors || [];
-  return <div><h3>🗺️ Live Broadcast Map</h3><svg width="100%" viewBox="0 0 400 220" style={{ background: '#eff6ff', borderRadius: 12 }}>
-    <circle cx="200" cy="110" r="85" fill="none" stroke="#0b6bcb" strokeDasharray="5 5" className="pulse-ring" /><circle cx="200" cy="110" r="7" fill="#0b2a4a" /><text x="200" y="95" textAnchor="middle" fontSize="10">🚗 {job.regNumber}</text>
-    {els.map((e, i) => { const ang = (i / Math.max(1, els.length)) * Math.PI * 2; const dist = Math.min(80, 15 + (e.distanceKm || 5) * 2.5); const x = 200 + Math.cos(ang) * dist; const y = 110 + Math.sin(ang) * dist;
-      return <g key={e.id}><circle className="hotspot" cx={x} cy={y} r="6" fill="#16a34a" /><text x={x} y={y - 10} textAnchor="middle" fontSize="8">{e.name.split(' ').pop()} ★{e.rating} · {e.distanceKm}km</text></g>; })}
-    {job.assignedInspector && <text x="200" y="208" textAnchor="middle" fontSize="10" fill="#15803d">Assigned: {job.assignedInspector.name}</text>}
-    <text x="200" y="15" textAnchor="middle" fontSize="9" fill="#64748b">Broadcast radius {job.broadcastRadiusKm} km · {job.allocationMode}</text></svg></div>;
+  if (!job) return null;
+  const els = job.eligibleInspectors || [];
+  const cx = 360;
+  const cy = 188;
+  const broadcastRadius = 118;
+
+  // Place inspectors in separate sectors of the circle. Previously, markers were
+  // positioned mainly by distance, so nearby inspectors and the vehicle label
+  // were drawn almost on top of each other.
+  const slotAngles = (count) => {
+    if (count === 1) return [180];
+    if (count === 2) return [180, 0];
+    if (count === 3) return [180, -90, 0];
+    if (count === 4) return [180, -90, 0, 90];
+    return Array.from({ length: count }, (_, i) => 180 + (360 / count) * i);
+  };
+  const angles = slotAngles(els.length);
+  const points = els.map((inspector, index) => {
+    const radians = (angles[index] * Math.PI) / 180;
+    const markerX = cx + Math.cos(radians) * 96;
+    const markerY = cy + Math.sin(radians) * 96;
+    const displayName = String(inspector.name || 'Inspector').replace(/^Inspector\s+/i, '');
+    const label = `${displayName} ★${inspector.rating} · ${inspector.distanceKm} km`;
+    const labelWidth = Math.max(132, label.length * 6.7);
+    const labelX = Math.min(720 - labelWidth / 2 - 10, Math.max(labelWidth / 2 + 10, cx + Math.cos(radians) * 158));
+    const labelY = Math.min(330, Math.max(58, cy + Math.sin(radians) * 158));
+    return { inspector, label, labelWidth, markerX, markerY, labelX, labelY };
+  });
+  const vehicleLabel = `Vehicle · ${job.regNumber}`;
+  const vehicleLabelWidth = Math.max(148, vehicleLabel.length * 7.2);
+
+  return <div>
+    <h3>🗺️ Live Broadcast Map</h3>
+    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+      <span className="pill">Broadcast radius: {job.broadcastRadiusKm} km</span>
+      <span className="pill">Allocation: {job.allocationMode}</span>
+      <span className="pill">Eligible inspectors: {els.length}</span>
+      {job.assignedInspector && <span className="pill">Assigned: {job.assignedInspector.name}</span>}
+    </div>
+
+    <svg width="100%" viewBox="0 0 720 360" role="img" aria-label="Live broadcast map showing the vehicle and eligible inspectors" style={{ background: 'linear-gradient(180deg,#eff6ff,#f8fbff)', border: '1px solid #dbeafe', borderRadius: 14, display: 'block' }}>
+      <circle cx={cx} cy={cy} r={broadcastRadius} fill="rgba(219,234,254,.45)" stroke="#0b6bcb" strokeWidth="2" strokeDasharray="7 6" className="pulse-ring" />
+      <circle cx={cx} cy={cy} r="58" fill="none" stroke="#bfdbfe" strokeWidth="1.5" />
+
+      {points.map(({ inspector, label, labelWidth, markerX, markerY, labelX, labelY }) => (
+        <g key={inspector.id}>
+          <line x1={markerX} y1={markerY} x2={labelX} y2={labelY} stroke="#93c5fd" strokeWidth="1.5" />
+          <circle cx={markerX} cy={markerY} r="10" fill="#fff" stroke="#16a34a" strokeWidth="2" />
+          <circle className="hotspot" cx={markerX} cy={markerY} r="5.5" fill="#16a34a" />
+          <rect x={labelX - labelWidth / 2} y={labelY - 16} width={labelWidth} height="32" rx="16" fill="#fff" stroke="#93c5fd" />
+          <text x={labelX} y={labelY + 4} textAnchor="middle" fontSize="12" fontWeight="700" fill="#12365d">{label}</text>
+        </g>
+      ))}
+
+      <text x={cx} y={cy - 18} textAnchor="middle" fontSize="22">🚗</text>
+      <circle cx={cx} cy={cy + 3} r="7" fill="#0b2a4a" stroke="#fff" strokeWidth="2" />
+      <rect x={cx - vehicleLabelWidth / 2} y={cy + 20} width={vehicleLabelWidth} height="30" rx="15" fill="#0b2a4a" />
+      <text x={cx} y={cy + 39} textAnchor="middle" fontSize="12" fontWeight="800" fill="#fff">{vehicleLabel}</text>
+    </svg>
+
+    {els.length > 0 && <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
+      {els.map((inspector) => <span key={inspector.id} className="pill" style={{ background: '#dcfce7', color: '#14532d' }}>
+        {inspector.name} · ★{inspector.rating} · {inspector.distanceKm} km away
+      </span>)}
+    </div>}
+    {job.assignedInspector && <p style={{ color: '#15803d', fontWeight: 700, marginBottom: 0 }}>Assigned inspector: {job.assignedInspector.name}</p>}
+  </div>;
 }
 
 export function AnalyticsPanel() {
