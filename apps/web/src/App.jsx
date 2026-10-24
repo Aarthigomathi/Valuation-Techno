@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { api, token, sessionUser, setSession, clearSession, inr, fmtDate, openAuthed, logoutApi } from './api.js';
-import { FraudGauge, CarTwin, AiScanPanel, MarketChart, LiveMap, AnalyticsPanel, ErrorBoundary, CarShowcase, ValuationDuel } from './components/Advanced.jsx';
+import { FraudGauge, CarTwin, AiScanPanel, MarketChart, LiveMap, AnalyticsPanel, ErrorBoundary, CarShowcase, ValuationDuel, CelebrationHost, SuccessTick, fireCelebration } from './components/Advanced.jsx';
 import AdminControlCenter from './components/AdminDashboard.jsx';
 
 const PHASES = ['BROADCAST', 'ASSIGNED', 'INSPECTION_IN_PROGRESS', 'INSPECTION_SUBMITTED', 'AUDIT_REQUIRED', 'REPORT_DELIVERED', 'SETTLED'];
@@ -140,6 +140,15 @@ function Dashboard() {
     setNotifs(await api('/admin/notifications')); return j;
   };
   useEffect(() => { reload().catch((e) => setErr(e.message)); }, []);
+  const prevStatus = useRef({});
+  useEffect(() => { // celebration watcher: report delivery & settlement, from any role, live
+    jobs.forEach((j) => {
+      const prev = prevStatus.current[j.id];
+      if (prev && prev !== j.status && j.status === 'REPORT_DELIVERED') fireCelebration(`Report Delivered · ${j.regNumber}`);
+      if (prev && prev !== j.status && j.status === 'SETTLED') fireCelebration(`Payment Settled · ${j.regNumber}`);
+      prevStatus.current[j.id] = j.status;
+    });
+  }, [jobs]);
   useEffect(() => { // live channel: updates the data, but market ticks must not force full reloads
     const proto = location.protocol === 'https:' ? 'wss' : 'ws'; const ws = new WebSocket(`${proto}://${location.host}/ws?token=${encodeURIComponent(token() || '')}`);
     ws.onopen = () => setLiveOn(true); ws.onclose = () => setLiveOn(false);
@@ -171,13 +180,13 @@ function Dashboard() {
         if (!jobForm.make.trim() || !jobForm.model.trim()) throw new Error('Please enter the vehicle make and model');
         if (!jobForm.year || jobForm.year < 1990) throw new Error('Please enter a valid vehicle year');
         const j = await api('/jobs', { method: 'POST', body: JSON.stringify(jobForm) });
-        setCreatedJob(j); await reload(); setTab('jobs'); setSelId(j.id);
+        setCreatedJob(j); fireCelebration(`Job Created & Broadcast · ${j.regNumber}`); await reload(); setTab('jobs'); setSelId(j.id);
         setBanner(`✓ ${j.regNumber} verified and broadcast successfully. Inspectors have been notified in real time.`);
         setTimeout(() => document.getElementById('created-job-result')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 250);
       }}>Verify Vehicle + Broadcast →</Btn>
       <p className="muted">On create: VAHAN RC + IIB insurance/claims check runs, seeker fee posts, nearby inspectors get it LIVE.</p>
       {createdJob && <div id="created-job-result" className="ok" style={{ textAlign: 'left' }}>
-        <b>✅ JOB CREATED SUCCESSFULLY!</b><br/>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}><SuccessTick size={44} /><b>✅ JOB CREATED SUCCESSFULLY!</b></div>
         🚗 {createdJob.make} {createdJob.model} · {createdJob.regNumber} · Status: <b>{createdJob.status}</b> (live broadcast sent to eligible inspectors)<br/>
         <b>Verification Results:</b><br/>
         {(createdJob.verification?.checks || []).map((c) => <span key={c.name}>• {c.name}: <b>{c.status}</b> — {c.detail}<br/></span>)}
@@ -216,4 +225,4 @@ export default function App() {
     const fallback = setTimeout(() => document.querySelectorAll('.reveal').forEach((el) => el.classList.add('revealed')), 2500);
     return () => { io.disconnect(); mo.disconnect(); clearTimeout(fallback); };
   }, []);
-  return <Routes><Route path="/" element={token() ? <Navigate to="/dashboard" /> : <Login />} /><Route path="/dashboard" element={<Dashboard />} /><Route path="*" element={<Navigate to="/" />} /></Routes>; }
+  return <><CelebrationHost /><Routes><Route path="/" element={token() ? <Navigate to="/dashboard" /> : <Login />} /><Route path="/dashboard" element={<Dashboard />} /><Route path="*" element={<Navigate to="/" />} /></Routes></>; }

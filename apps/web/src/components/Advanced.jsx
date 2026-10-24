@@ -192,6 +192,57 @@ export function ValuationDuel({ v }) {
   </div>;
 }
 
+
+// ---- Celebration effects: confetti bursts + animated success tick ----
+export function fireCelebration(message = 'Done!') {
+  try { window.dispatchEvent(new CustomEvent('vt-celebrate', { detail: { message } })); } catch { /* noop */ }
+}
+
+export function SuccessTick({ size = 74 }) {
+  return <svg className="success-tick" width={size} height={size} viewBox="0 0 72 72" role="img" aria-label="Success">
+    <circle className="tick-circle" cx="36" cy="36" r="32" fill="none" stroke="#34d399" strokeWidth="4" />
+    <path className="tick-check" d="M22 37 L32 47 L51 27" fill="none" stroke="#34d399" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>;
+}
+
+const CONFETTI_COLORS = ['#38bdf8', '#34d399', '#fbbf24', '#fb7185', '#a78bfa', '#d946ef', '#2dd4bf'];
+export function CelebrationHost() {
+  const [bursts, setBursts] = useState([]);
+  useEffect(() => {
+    const onCelebrate = (e) => {
+      const id = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+      const pieces = Array.from({ length: 80 }, (_, i) => ({
+        id: i,
+        left: Math.random() * 100,
+        delay: Math.random() * 0.35,
+        duration: 2.3 + Math.random() * 1.3,
+        size: 6 + Math.random() * 7,
+        color: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
+        round: Math.random() > 0.6,
+        drift: -70 + Math.random() * 140,
+        spin: 360 + Math.random() * 720,
+      }));
+      setBursts((b) => [...b.slice(-2), { id, message: e.detail?.message || 'Done!', pieces }]);
+      setTimeout(() => setBursts((b) => b.filter((x) => x.id !== id)), 3900);
+    };
+    window.addEventListener('vt-celebrate', onCelebrate);
+    return () => window.removeEventListener('vt-celebrate', onCelebrate);
+  }, []);
+  return <>
+    {bursts.map((burst) => <div key={burst.id} className="confetti-layer" aria-hidden="true">
+      {burst.pieces.map((piece) => <span key={piece.id} className="confetti-piece" style={{
+        left: `${piece.left}vw`, width: piece.size, height: piece.round ? piece.size : piece.size * 0.45,
+        background: piece.color, borderRadius: piece.round ? '50%' : 2,
+        animationDuration: `${piece.duration}s`, animationDelay: `${piece.delay}s`,
+        '--drift': `${piece.drift}px`, '--spin': `${piece.spin}deg`,
+      }} />)}
+    </div>)}
+    {bursts.length > 0 && <div className="celebration-toast" role="status">
+      <SuccessTick size={64} /><div><strong>{bursts[bursts.length - 1].message}</strong><span>Completed successfully</span></div>
+    </div>}
+  </>;
+}
+
 export function AnalyticsPanel() {
   const [a, setA] = useState(null); const [loadErr, setLoadErr] = useState('');
   // ALL hooks must run before any early return — calling useCountUp after `if (!a)` crashes React (white screen).

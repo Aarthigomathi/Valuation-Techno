@@ -108,3 +108,18 @@ input,select,textarea{background:#08111f!important;color:#e7eefb!important;borde
   *,*:before,*:after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
   .reveal{opacity:1;transform:none}
 }
+
+/* ===== Celebration effects: confetti + animated success tick ===== */
+.confetti-layer{position:fixed;inset:0;pointer-events:none;z-index:999;overflow:hidden}
+.confetti-piece{position:absolute;top:-4vh;display:block;animation-name:confettiFall;animation-timing-function:cubic-bezier(.2,.7,.4,1);animation-fill-mode:both}
+@keyframes confettiFall{0%{transform:translate3d(0,-4vh,0) rotate(0deg);opacity:1}85%{opacity:1}100%{transform:translate3d(var(--drift,0px),106vh,0) rotate(var(--spin,540deg));opacity:.15}}
+.celebration-toast{position:fixed;top:22px;left:50%;transform:translateX(-50%);z-index:1000;display:flex;gap:12px;align-items:center;background:linear-gradient(180deg,rgba(16,34,54,.97),rgba(8,17,31,.97));border:1px solid rgba(52,211,153,.45);color:#fff;border-radius:18px;padding:12px 20px 12px 14px;box-shadow:0 24px 60px rgba(2,6,23,.55);animation:celebrationIn .45s cubic-bezier(.2,1.4,.4,1) both}
+.celebration-toast strong{display:block;font-size:15px;color:#fff}
+.celebration-toast span{display:block;font-size:12px;color:#8fa3bf;margin-top:2px}
+@keyframes celebrationIn{from{opacity:0;transform:translate(-50%,-18px) scale(.92)}to{opacity:1;transform:translate(-50%,0) scale(1)}}
+.success-tick{flex:none;animation:tickPop .5s cubic-bezier(.2,1.6,.4,1) both}
+@keyframes tickPop{from{transform:scale(.4);opacity:0}to{transform:scale(1);opacity:1}}
+.tick-circle{stroke-dasharray:202;stroke-dashoffset:202;animation:tickDraw .7s ease forwards}
+.tick-check{stroke-dasharray:48;stroke-dashoffset:48;animation:tickDraw .45s .55s ease forwards}
+@keyframes tickDraw{to{stroke-dashoffset:0}}
+@media (prefers-reduced-motion: reduce){.confetti-piece{display:none}}
