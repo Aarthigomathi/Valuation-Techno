@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { api, token, sessionUser, setSession, clearSession, inr, fmtDate, openAuthed, logoutApi } from './api.js';
-import { FraudGauge, CarTwin, AiScanPanel, MarketChart, LiveMap, AnalyticsPanel } from './components/Advanced.jsx';
+import { FraudGauge, CarTwin, AiScanPanel, MarketChart, LiveMap, AnalyticsPanel, ErrorBoundary } from './components/Advanced.jsx';
 
 const PHASES = ['BROADCAST', 'ASSIGNED', 'INSPECTION_IN_PROGRESS', 'INSPECTION_SUBMITTED', 'AUDIT_REQUIRED', 'REPORT_DELIVERED', 'SETTLED'];
 const ROLE_META = {
@@ -187,8 +187,8 @@ function Dashboard() {
     {tab === 'jobs' && <div className="card"><table><thead><tr><th>Vehicle</th><th>Reg</th><th>Status</th><th>Valuation</th><th>Action</th></tr></thead><tbody>{jobs.map((j) => <tr key={j.id}><td>{j.make} {j.model} ({j.year})<br /><span className="muted">{fmtDate(j.createdAt)}</span></td><td>{j.regNumber}</td><td><StatusPill s={j.status} /></td><td>{j.valuation?.finalValuation ? inr(j.valuation.finalValuation) : j.valuation ? `${j.valuation.variancePct}% ${j.valuation.flag}` : '—'}</td><td><Btn ghost action={async () => open(j)}>Open →</Btn></td></tr>)}</tbody></table>{jobs.length === 0 && <p className="muted">No jobs yet.</p>}</div>}
     {tab === 'ledger' && user.role !== 'LOAN_SEEKER' && <div className="card"><table><thead><tr><th>Type</th><th>From → To</th><th>Amount</th><th>Status</th><th>Date</th></tr></thead><tbody>{ledger.map((l) => <tr key={l.id}><td>{l.type}</td><td>{l.fromParty} → {l.toParty}</td><td>{inr(l.amount)}</td><td>{l.status}</td><td>{fmtDate(l.createdAt)}</td></tr>)}</tbody></table>{ledger.length === 0 && <p className="muted">No transactions yet.</p>}</div>}
     {tab === 'notifs' && <div className="card">{notifs.map((n) => <p key={n.id}><b>{n.title}</b><br /><span className="muted">{n.body} · {fmtDate(n.createdAt)}</span></p>)}{notifs.length === 0 && <p className="muted">No notifications yet.</p>}</div>}
-    {tab === 'analytics' && <AnalyticsPanel />}
-    <div id="job-detail">{sel && <JobDetail job={sel} user={user} reload={reload} onClose={() => setSelId(null)} />}</div>
+    {tab === 'analytics' && <ErrorBoundary><AnalyticsPanel /></ErrorBoundary>}
+    <div id="job-detail">{sel && <ErrorBoundary><JobDetail job={sel} user={user} reload={reload} onClose={() => setSelId(null)} /></ErrorBoundary>}</div>
   </div></div>;
 }
 export default function App() { return <Routes><Route path="/" element={token() ? <Navigate to="/dashboard" /> : <Login />} /><Route path="/dashboard" element={<Dashboard />} /><Route path="*" element={<Navigate to="/" />} /></Routes>; }

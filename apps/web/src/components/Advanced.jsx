@@ -1,5 +1,15 @@
-import { useEffect, useRef, useState } from 'react';
+import { Component, useEffect, useState } from 'react';
 import { api, inr } from '../api.js';
+
+// Safety net: a crashing panel shows a message + recovery, never a white screen.
+export class ErrorBoundary extends Component {
+  constructor(props) { super(props); this.state = { err: null }; }
+  static getDerivedStateFromError(err) { return { err }; }
+  render() {
+    if (this.state.err) return <div className="card"><h3>⚠️ Indha panel load aagala</h3><p className="muted">{String(this.state.err.message || this.state.err)}</p><button onClick={() => this.setState({ err: null })}>↺ Thirumba Try Pannunga</button></div>;
+    return this.props.children;
+  }
+}
 
 export function useCountUp(target, ms = 900) {
   const [v, setV] = useState(0);
@@ -61,13 +71,16 @@ export function LiveMap({ job }) {
 }
 
 export function AnalyticsPanel() {
-  const [a, setA] = useState(null);
-  useEffect(() => { api('/analytics').then(setA).catch(() => {}); const id = setInterval(() => api('/analytics').then(setA).catch(() => {}), 15000); return () => clearInterval(id); }, []);
-  if (!a) return <p className="muted">Loading AI analytics…</p>;
-  const jobs = useCountUp(a.jobsTotal); const settled = useCountUp(a.settledValue);
+  const [a, setA] = useState(null); const [loadErr, setLoadErr] = useState('');
+  // ALL hooks must run before any early return — calling useCountUp after `if (!a)` crashes React (white screen).
+  const jobs = useCountUp(a?.jobsTotal ?? 0); const settled = useCountUp(a?.settledValue ?? 0);
+  useEffect(() => { const load = () => api('/analytics').then((d) => { setA(d); setLoadErr(''); }).catch((e) => setLoadErr(e.message)); load(); const id = setInterval(load, 15000); return () => clearInterval(id); }, []);
+  if (loadErr) return <div className="card"><h3>⚠️ AI Analytics load aagala</h3><p className="muted">{loadErr}</p></div>;
+  if (!a) return <p className="muted">⏳ Loading AI analytics…</p>;
+  const fraud = a.fraud || { low: 0, medium: 0, high: 0, avgScore: 0 }; const leaderboard = a.leaderboard || [];
   const bar = (label, n, max, color) => <div key={label}><label>{label}: {n}</label><div style={{ background: '#e2e8f0', borderRadius: 8, height: 12 }}><div style={{ width: `${max ? (n / max) * 100 : 0}%`, background: color, height: 12, borderRadius: 8, transition: 'width 1s' }} /></div></div>;
-  const fmax = Math.max(1, a.fraud.low, a.fraud.medium, a.fraud.high);
+  const fmax = Math.max(1, fraud.low, fraud.medium, fraud.high);
   return <div><div className="grid"><div className="card"><div className="muted">Total jobs</div><div className="stat">{Math.round(jobs)}</div></div><div className="card"><div className="muted">Settled value</div><div className="stat">{inr(settled)}</div></div><div className="card"><div className="muted">Green-flag rate</div><div className="stat">{a.greenPct}%</div></div><div className="card"><div className="muted">Avg variance</div><div className="stat">{a.avgVariance}%</div></div><div className="card"><div className="muted">Users online (live)</div><div className="stat">{a.onlineUsers}</div></div></div>
-    <div className="card"><h3>🛡️ Fraud Risk Distribution (avg score {a.fraud.avgScore}/100)</h3>{bar('LOW', a.fraud.low, fmax, '#16a34a')}{bar('MEDIUM', a.fraud.medium, fmax, '#f59e0b')}{bar('HIGH', a.fraud.high, fmax, '#dc2626')}<p className="ok">🤖 AI Insight: {a.insight} Next-month volume forecast: ~{a.volumeForecastNextMonth} jobs.</p></div>
-    <div className="card"><h3>🏆 Inspector Leaderboard</h3><table><thead><tr><th>Inspector</th><th>Rating</th><th>Rated jobs</th><th>Status</th></tr></thead><tbody>{a.leaderboard.map((u) => <tr key={u.id}><td>{u.name}</td><td>★ {u.rating}</td><td>{u.ratingCount}</td><td>{u.status}</td></tr>)}</tbody></table></div></div>;
+    <div className="card"><h3>🛡️ Fraud Risk Distribution (avg score {fraud.avgScore}/100)</h3>{bar('LOW', fraud.low, fmax, '#16a34a')}{bar('MEDIUM', fraud.medium, fmax, '#f59e0b')}{bar('HIGH', fraud.high, fmax, '#dc2626')}<p className="ok">🤖 AI Insight: {a.insight} Next-month volume forecast: ~{a.volumeForecastNextMonth} jobs.</p></div>
+    <div className="card"><h3>🏆 Inspector Leaderboard</h3><table><thead><tr><th>Inspector</th><th>Rating</th><th>Rated jobs</th><th>Status</th></tr></thead><tbody>{leaderboard.map((u) => <tr key={u.id}><td>{u.name}</td><td>★ {u.rating}</td><td>{u.ratingCount}</td><td>{u.status}</td></tr>)}</tbody></table>{leaderboard.length === 0 && <p className="muted">No inspectors yet.</p>}</div></div>;
 }
