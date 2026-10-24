@@ -28,6 +28,6 @@ app.post('/api/upload', requireAuth, requireRole('INSPECTOR', 'BANK'), upload.si
 });
 // Serve built frontend when present (single-port demo)
 const webDist = new URL('../../web/dist/', import.meta.url).pathname;
-if (fs.existsSync(webDist)) { app.use(express.static(webDist)); app.get('*', (req, res, next) => req.path.startsWith('/api') ? next() : res.sendFile(path.join(webDist, 'index.html'))); }
+if (fs.existsSync(webDist)) { app.use(express.static(webDist, { setHeaders: (res, filePath) => { if (filePath.endsWith('index.html')) res.setHeader('Cache-Control', 'no-store, must-revalidate'); } })); app.get('/project.zip', (req, res) => res.download(new URL('../../web/dist/project.zip', import.meta.url).pathname, 'Valuation-Techno-Project.zip')); app.get('*', (req, res, next) => req.path.startsWith('/api') ? next() : res.sendFile(path.join(webDist, 'index.html'))); }
 app.use((err, req, res, next) => { console.error(err); if (err?.name === 'ZodError') return res.status(400).json({ error: 'Validation failed', details: err.errors }); res.status(err.status || 500).json({ error: err.message || 'Internal server error' }); });
 export default app;
