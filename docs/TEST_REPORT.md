@@ -35,3 +35,7 @@ Plus: login brute-force rate limiting (10/15 min), prod OTP secrecy, security he
 | 17 | AI analytics role-guarded; leaderboard + fraud distribution + variance health | ✅ |
 | 18 | WebSocket: inspector receives JOB_CREATED instantly on bank job creation (also proven live outside tests) | ✅ |
 Frontend build passes with AI-animated panels (Fraud Gauge, Digital Twin, AI Scan, Live Map, Market Chart, Analytics).
+
+## UI usability overhaul (user-reported: same dashboards, dead buttons)
+Root causes found & fixed: (1) Report/PDF were plain links without JWT → 401 on click — now authenticated blob open; (2) all roles shared one dashboard — now 4 distinct role dashboards with direct action buttons; (3) buttons had no busy/error feedback — new Btn component (spinner + inline errors); (4) MARKET_TICK forced full reload every 20s — ticks no longer reload; (5) inspection draft restore missed damages/images — fixed.
+Verified by scripted UI-flow: create→accept→start→submit(GREEN 1.74%)→report→PDF→rate(4.8)→feedback(4.67)→settle→analytics/market/ledger/notifications — all pass on the live server. 18/18 automated tests still pass.

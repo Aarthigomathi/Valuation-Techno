@@ -1,141 +1,194 @@
 import { useEffect, useState } from 'react';
-import { Routes, Route, Navigate, useNavigate, Link } from 'react-router-dom';
-import { api, token, sessionUser, setSession, clearSession, inr, fmtDate } from './api.js';
+import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { api, token, sessionUser, setSession, clearSession, inr, fmtDate, openAuthed } from './api.js';
 import { FraudGauge, CarTwin, AiScanPanel, MarketChart, LiveMap, AnalyticsPanel } from './components/Advanced.jsx';
 
 const PHASES = ['BROADCAST', 'ASSIGNED', 'INSPECTION_IN_PROGRESS', 'INSPECTION_SUBMITTED', 'AUDIT_REQUIRED', 'REPORT_DELIVERED', 'SETTLED'];
+const ROLE_META = {
+  BANK: { icon: '🏦', title: 'Bank Officer Dashboard', color: '#0b6bcb', home: 'Create valuation jobs, track reports & settle payments' },
+  INSPECTOR: { icon: '🔍', title: 'Inspector Dashboard', color: '#15803d', home: 'Jobs near you, inspections, instant-pay earnings & your rating' },
+  LOAN_SEEKER: { icon: '🚗', title: 'My Vehicle Valuation', color: '#b45309', home: 'Track your valuation, download your summary report & rate your inspector' },
+  ADMIN: { icon: '🛡️', title: 'Platform Control Tower', color: '#7c3aed', home: 'RED-flag audit queue, inspector governance, money & AI analytics' },
+};
 function StatusPill({ s }) { return <span className="pill">{s}</span>; }
 function Stepper({ status }) { const idx = PHASES.indexOf(status); return <div className="stepper">{PHASES.map((p, i) => <span key={p} className={`step ${i <= idx ? 'on' : ''}`}>{p.replaceAll('_', ' ')}</span>)}</div>; }
 
-function Login() {
-  const nav = useNavigate(); const [form, setForm] = useState({ email: '', password: '' }); const [reg, setReg] = useState({ name: '', email: '', password: '', phone: '', role: 'LOAN_SEEKER' });
-  const [err, setErr] = useState(''); const [mode, setMode] = useState('login'); const [otp, setOtp] = useState(null);
-  const doLogin = async (email, password) => { try { const d = await api('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }); setSession(d.token, d.user); nav('/dashboard'); } catch (e) { setErr(e.message); } };
-  const demos = [['Bank (HDFC)', 'bank@valuation.techno', 'Bank@123'], ['Inspector Ravi ★4.6', 'inspector@valuation.techno', 'Inspector@123'], ['Loan Seeker', 'seeker@valuation.techno', 'Seeker@123'], ['Platform Admin', 'admin@valuation.techno', 'Admin@123']];
-  return <div className="wrap"><div className="card login"><h1>Valuation Techno</h1><p className="muted">Smart Valuation. Safer Transactions — AI-powered used vehicle valuation & FinTech platform.</p>
-    {err && <div className="err">{err}</div>}
-    <div className="tabs"><button className={mode === 'login' ? 'on' : ''} onClick={() => setMode('login')}>Login</button><button className={mode === 'register' ? 'on' : ''} onClick={() => setMode('register')}>Register</button><button className={mode === 'otp' ? 'on' : ''} onClick={() => setMode('otp')}>OTP Login</button></div>
-    {mode === 'login' && <><label>Email</label><input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="you@bank.com" /><label>Password</label><input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} /><button style={{ width: '100%' }} onClick={() => doLogin(form.email, form.password)}>Login</button>
-      <p className="muted">One-click demo accounts:</p><div className="demo">{demos.map(([l, e, p]) => <button key={e} className="ghost" onClick={() => doLogin(e, p)}>{l} · <span className="kbd">{e}</span></button>)}</div></>}
-    {mode === 'register' && <><label>Full name</label><input value={reg.name} onChange={(e) => setReg({ ...reg, name: e.target.value })} /><label>Email</label><input value={reg.email} onChange={(e) => setReg({ ...reg, email: e.target.value })} /><label>Phone</label><input value={reg.phone} onChange={(e) => setReg({ ...reg, phone: e.target.value })} placeholder="+91..." /><label>Role</label><select value={reg.role} onChange={(e) => setReg({ ...reg, role: e.target.value })}><option value="BANK">Bank</option><option value="INSPECTOR">Inspector</option><option value="LOAN_SEEKER">Loan Seeker</option></select><label>Password</label><input type="password" value={reg.password} onChange={(e) => setReg({ ...reg, password: e.target.value })} /><button style={{ width: '100%' }} onClick={async () => { try { const d = await api('/auth/register', { method: 'POST', body: JSON.stringify(reg) }); setSession(d.token, d.user); nav('/dashboard'); } catch (e) { setErr(e.message); } }}>Create account</button></>}
-    {mode === 'otp' && <><label>Phone (use a demo phone e.g. +919000000003)</label><input id="otp-phone" placeholder="+919000000003" /><button className="ghost" onClick={async () => { try { const d = await api('/auth/otp/request', { method: 'POST', body: JSON.stringify({ phone: document.getElementById('otp-phone').value }) }); setOtp(d.demoOtp); } catch (e) { setErr(e.message); } }}>Send OTP</button>{otp && <p className="ok">Demo OTP: <b>{otp}</b> (shown only in demo mode)</p>}<label>OTP</label><input id="otp-code" /><button style={{ width: '100%' }} onClick={async () => { try { const d = await api('/auth/otp/verify', { method: 'POST', body: JSON.stringify({ phone: document.getElementById('otp-phone').value, code: document.getElementById('otp-code').value }) }); setSession(d.token, d.user); nav('/dashboard'); } catch (e) { setErr(e.message); } }}>Verify & Login</button></>}
-  </div></div>;
+// Button that ALWAYS responds: spinner while working, disabled, and shows errors instead of silently failing.
+export function Btn({ action, children, className = '', green, danger, ghost }) {
+  const [busy, setBusy] = useState(false); const [err, setErr] = useState('');
+  return <span style={{ display: 'inline-flex', flexDirection: 'column', gap: 4 }}>
+    <button type="button" disabled={busy} className={`${className} ${green ? 'green' : ''} ${danger ? 'danger' : ''} ${ghost ? 'ghost' : ''}`}
+      onClick={async () => { setBusy(true); setErr(''); try { await action(); } catch (e) { setErr(e.message); } finally { setBusy(false); } }}>
+      {busy ? '⏳ Working…' : children}</button>
+    {err && <span style={{ color: '#dc2626', fontSize: 12, maxWidth: 320 }}>{err}</span>}</span>;
 }
 
-function JobDetail({ job, user, reload }) {
-  const [msg, setMsg] = useState(''); const [err, setErr] = useState('');
-  const act = async (path, body) => { try { await api(path, { method: 'POST', body: JSON.stringify(body || {}) }); setMsg('Done'); reload(); } catch (e) { setErr(e.message); } };
-  if (!job) return null; const v = job.valuation;
-  return <div className="card"><h2>{job.make} {job.model} {job.variant || ''} ({job.year}) · {job.regNumber}</h2><Stepper status={job.status} />
-    <p><StatusPill s={job.status} /> <span className="muted">Loan: {job.loanRef || '—'} · Seeker: {job.seekerName} · Fee: {inr(job.valuationFee)} · Mode: {job.allocationMode} · Radius: {job.broadcastRadiusKm} km</span></p>
-    {msg && <div className="ok">{msg}</div>}{err && <div className="err">{err}</div>}
-    {job.verification && <details open><summary><b>Vehicle Verification (VAHAN / IIB)</b></summary><table><tbody>{job.verification.checks?.map((c) => <tr key={c.name}><td>{c.name}</td><td>{c.status}</td><td>{c.detail}</td></tr>)}</tbody></table><p className="muted">Accidents: {job.verification.history?.accidentCount} · Claims: {job.verification.history?.claimCount} · Owners: {job.verification.ownership?.ownersCount} · Insurance valid: {job.verification.insurance?.valid ? 'Yes' : 'No'}</p></details>}
-    {job.assignedInspector && <p>Inspector: <b>{job.assignedInspector.name}</b> ★ {job.assignedInspector.rating} ({job.assignedInspector.status})</p>}
-    {!job.assignedInspector && job.eligibleInspectors?.length > 0 && <p className="muted">Eligible inspectors in radius: {job.eligibleInspectors.map((i) => `${i.name} ★${i.rating} (${i.distanceKm} km)`).join(' · ')}</p>}
-    {v && <div><h3>Dual Valuation</h3><table><tbody><tr><td>Market (DeepSearch)</td><td>{inr(v.marketValue)}</td><td>AI Valuation</td><td>{inr(v.aiValuation)}</td></tr><tr><td>Manual Valuation</td><td>{inr(v.manualValuation)}</td><td>Variance</td><td>{v.variancePct}% <span className={`flag ${v.flag}`}>{v.flag} FLAG</span></td></tr><tr><td>Final Valuation</td><td><b>{inr(v.finalValuation)}</b></td><td>Status</td><td>{v.status}</td></tr></tbody></table><p className="muted">{(v.varianceReasons || []).join('; ')}</p></div>}
-    {job.analysis && user.role !== 'LOAN_SEEKER' && <details><summary><b>AI Damage & Fraud (killfake.ai)</b></summary><p>Damage total: {inr(job.analysis.damage.costBreakdown.totalDamageCost)} (Parts {inr(job.analysis.damage.costBreakdown.parts)} · Labor {inr(job.analysis.damage.costBreakdown.labor)} · Paint {inr(job.analysis.damage.costBreakdown.paint)}) · Tire wear {job.analysis.damage.tireWearPct}% · Fraud: <b>{job.analysis.fraud.riskLevel} ({job.analysis.fraud.fraudScore}/100)</b></p><table><tbody>{job.analysis.fraud.checks.map((c) => <tr key={c.name}><td>{c.name}</td><td>{c.status}</td><td>{c.detail}</td></tr>)}</tbody></table></details>}
-    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
-      {user.role === 'INSPECTOR' && job.status === 'BROADCAST' && <button onClick={() => act(`/jobs/${job.id}/accept`)}>Accept Job (exclusive)</button>}
-      {user.role === 'INSPECTOR' && job.status === 'ASSIGNED' && <button onClick={() => act(`/jobs/${job.id}/start`)}>Start Inspection</button>}
-      {v?.finalValuation && <a className="btn ghost" href={`/api/jobs/${job.id}/report`} target="_blank" rel="noreferrer">View {user.role === 'LOAN_SEEKER' ? 'Summary' : 'Full'} Report</a>}
-      {v?.finalValuation && <a className="btn ghost" href={`/api/jobs/${job.id}/report.pdf`} target="_blank" rel="noreferrer">Download PDF</a>}
-      {(user.role === 'BANK' || user.role === 'ADMIN') && job.status === 'REPORT_DELIVERED' && <button className="green" onClick={() => act(`/jobs/${job.id}/settle`)}>Settle Payment (Phase 6)</button>}
-    </div>
-    {user.role === 'INSPECTOR' && ['ASSIGNED', 'INSPECTION_IN_PROGRESS'].includes(job.status) && <InspectionForm job={job} reload={reload} />}
-    {user.role === 'ADMIN' && job.status === 'AUDIT_REQUIRED' && <AuditBox job={job} reload={reload} />}
-    {(user.role === 'LOAN_SEEKER') && job.status === 'REPORT_DELIVERED' && !job.rating && <RateBox job={job} reload={reload} />}
-    {job.rating && <p className="ok">Rating: Seeker {job.rating.seekerScore}/5 · Platform {job.rating.platformScore}/5 · <b>Composite {job.rating.composite}/5</b> (0.4×Seeker + 0.6×Platform)</p>}
-    {job.analysis && user.role !== 'LOAN_SEEKER' && <div className='card' style={{display:'flex',gap:18,flexWrap:'wrap'}}><FraudGauge score={job.analysis.fraud.fraudScore} risk={job.analysis.fraud.riskLevel} /><CarTwin detections={job.analysis.damage.detections} /><div style={{flex:1,minWidth:260}}><AiScanPanel analysis={job.analysis} /></div></div>}
-    {user.role !== 'LOAN_SEEKER' && <div className='card'><LiveMap job={job} /><MarketChart make={job.make} model={job.model} /></div>}
-    {user.role !== 'LOAN_SEEKER' && job.ledger?.length > 0 && <details><summary><b>Payments & Ledger</b></summary><table><tbody>{job.ledger.map((l) => <tr key={l.id}><td>{l.type}</td><td>{l.fromParty} → {l.toParty}</td><td>{inr(l.amount)}</td><td>{l.status}</td></tr>)}</tbody></table></details>}
-  </div>;
+function Login() {
+  const nav = useNavigate(); const [form, setForm] = useState({ email: '', password: '' }); const [reg, setReg] = useState({ name: '', email: '', password: '', phone: '', role: 'LOAN_SEEKER' });
+  const [err, setErr] = useState(''); const [msg, setMsg] = useState(''); const [mode, setMode] = useState('login'); const [otp, setOtp] = useState(null);
+  const doLogin = async (email, password) => { const d = await api('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }); setSession(d.token, d.user); nav('/dashboard'); };
+  const demos = [['🏦 Bank (HDFC)', 'bank@valuation.techno', 'Bank@123', 'Creates jobs, gets FULL report, settles'], ['🔍 Inspector Ravi ★4.6', 'inspector@valuation.techno', 'Inspector@123', 'Accepts jobs, inspects, gets instant pay'], ['🚗 Loan Seeker', 'seeker@valuation.techno', 'Seeker@123', 'Sees SUMMARY report, rates inspector'], ['🛡️ Platform Admin', 'admin@valuation.techno', 'Admin@123', 'Audits RED flags, controls platform']];
+  return <div className="wrap"><div className="card login"><h1>Valuation Techno</h1><p className="muted">Smart Valuation. Safer Transactions — AI-powered used vehicle valuation & FinTech platform. <b>Each login opens a different dashboard.</b></p>
+    {err && <div className="err">{err}</div>}{msg && <div className="ok">{msg}</div>}
+    <div className="tabs"><button className={mode === 'login' ? 'on' : ''} onClick={() => setMode('login')}>Login</button><button className={mode === 'register' ? 'on' : ''} onClick={() => setMode('register')}>Register</button><button className={mode === 'otp' ? 'on' : ''} onClick={() => setMode('otp')}>OTP Login</button></div>
+    {mode === 'login' && <><label>Email</label><input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="you@bank.com" /><label>Password</label><input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
+      <Btn action={() => doLogin(form.email, form.password)}>Login →</Btn>
+      <p className="muted">One-click demo logins (each is a DIFFERENT dashboard):</p><div className="demo">{demos.map(([l, e, p, desc]) => <Btn key={e} ghost action={() => doLogin(e, p)}>{l} — {desc}</Btn>)}</div></>}
+    {mode === 'register' && <><label>Full name</label><input value={reg.name} onChange={(e) => setReg({ ...reg, name: e.target.value })} /><label>Email</label><input value={reg.email} onChange={(e) => setReg({ ...reg, email: e.target.value })} /><label>Phone</label><input value={reg.phone} onChange={(e) => setReg({ ...reg, phone: e.target.value })} placeholder="+91..." /><label>Role</label><select value={reg.role} onChange={(e) => setReg({ ...reg, role: e.target.value })}><option value="BANK">Bank</option><option value="INSPECTOR">Inspector</option><option value="LOAN_SEEKER">Loan Seeker</option></select><label>Password (min 6 chars)</label><input type="password" value={reg.password} onChange={(e) => setReg({ ...reg, password: e.target.value })} />
+      <Btn action={async () => { const d = await api('/auth/register', { method: 'POST', body: JSON.stringify(reg) }); setSession(d.token, d.user); nav('/dashboard'); }}>Create account →</Btn></>}
+    {mode === 'otp' && <><label>Phone (demo: +919000000003 = Inspector Ravi)</label><input id="otp-phone" placeholder="+919000000003" />
+      <Btn ghost action={async () => { const d = await api('/auth/otp/request', { method: 'POST', body: JSON.stringify({ phone: document.getElementById('otp-phone').value }) }); setOtp(d.demoOtp); setMsg(`OTP sent to your phone${d.demoOtp ? ` (demo OTP: ${d.demoOtp})` : ''}`); }}>Send OTP</Btn>
+      <label>OTP</label><input id="otp-code" placeholder="6-digit OTP" />
+      <Btn action={async () => { const d = await api('/auth/otp/verify', { method: 'POST', body: JSON.stringify({ phone: document.getElementById('otp-phone').value, code: document.getElementById('otp-code').value }) }); setSession(d.token, d.user); nav('/dashboard'); }}>Verify & Login →</Btn></>}
+  </div></div>;
 }
 
 function InspectionForm({ job, reload }) {
   const cats = ['FRONT', 'REAR', 'ENGINE', 'TIRE', 'ODOMETER'];
-  const draftKey = `vt_draft_${job.id}`; // Mobile App Layer: offline draft cache (survives reload / network loss)
+  const draftKey = `vt_draft_${job.id}`;
   const draft = (() => { try { return JSON.parse(localStorage.getItem(draftKey)); } catch { return null; } })();
   const [f, setF] = useState(draft?.f || { odometerReading: job.expectedOdometer || 45000, manualValuation: '', manualRepairEstimate: 5000, notes: 'Vehicle in good condition' });
-  useEffect(() => { try { localStorage.setItem(draftKey, JSON.stringify({ f, damages, images })); } catch { /* storage full/blocked — non-fatal */ } });
-  const [damages, setDamages] = useState([{ part: 'Front bumper/panel', type: 'scratch', severity: 'Small', description: 'Minor scratch' }]);
-  const [images, setImages] = useState(cats.map((category, i) => ({ category, lat: job.vehicleLat, lng: job.vehicleLng, capturedAt: new Date().toISOString(), imageHash: `img-${job.id}-${i}-${Math.random().toString(36).slice(2, 8)}` })));
-  const [err, setErr] = useState('');
+  const [damages, setDamages] = useState(draft?.damages || [{ part: 'Front bumper/panel', type: 'scratch', severity: 'Small', description: 'Minor scratch' }]);
+  const [images, setImages] = useState(draft?.images || cats.map((category, i) => ({ category, lat: job.vehicleLat, lng: job.vehicleLng, capturedAt: new Date().toISOString(), imageHash: `img-${job.id}-${i}-${Math.random().toString(36).slice(2, 8)}` })));
+  const [err, setErr] = useState(''); const [done, setDone] = useState('');
+  useEffect(() => { try { localStorage.setItem(draftKey, JSON.stringify({ f, damages, images })); } catch { /* non-fatal */ } }, [f, damages, images]);
   const upload = async (e, idx) => { const file = e.target.files[0]; if (!file) return; const fd = new FormData(); fd.append('file', file); fd.append('category', images[idx].category); fd.append('lat', images[idx].lat); fd.append('lng', images[idx].lng);
     const res = await fetch('/api/upload', { method: 'POST', headers: { Authorization: `Bearer ${token()}` }, body: fd }); const d = await res.json(); if (!res.ok) return setErr(d.error || 'Upload failed');
-    setImages(images.map((im, i) => i === idx ? { ...im, imageHash: d.imageHash, filename: d.filename, originalName: d.originalName } : im)); };
-  return <div style={{ marginTop: 14 }}><h3>On-Site Inspection (Phase 2)</h3>{err && <div className="err">{err}</div>}
-    <div className="row"><div><label>Odometer reading (km)</label><input type="number" value={f.odometerReading} onChange={(e) => setF({ ...f, odometerReading: Number(e.target.value) })} /></div><div><label>Your manual valuation (₹)</label><input type="number" value={f.manualValuation} onChange={(e) => setF({ ...f, manualValuation: e.target.value })} placeholder="e.g. 735000" /></div></div>
+    setImages(images.map((im, i) => i === idx ? { ...im, imageHash: d.imageHash, filename: d.filename, originalName: d.originalName } : im)); setDone(`Uploaded ${d.originalName} ✓`); };
+  return <div style={{ marginTop: 14 }}><h3>🔍 On-Site Inspection (Phase 2)</h3>{err && <div className="err">{err}</div>}{done && <div className="ok">{done}</div>}
+    <div className="row"><div><label>Odometer reading (km)</label><input type="number" value={f.odometerReading} onChange={(e) => setF({ ...f, odometerReading: Number(e.target.value) })} /></div><div><label>Your manual valuation (₹) *</label><input type="number" value={f.manualValuation} onChange={(e) => setF({ ...f, manualValuation: e.target.value })} placeholder="e.g. 735000" /></div></div>
     <div className="row"><div><label>Manual repair estimate (₹)</label><input type="number" value={f.manualRepairEstimate} onChange={(e) => setF({ ...f, manualRepairEstimate: Number(e.target.value) })} /></div><div><label>Notes</label><input value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} /></div></div>
-    <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
-      <button type="button" className="ghost" onClick={() => { if (!navigator.geolocation) return setErr('Geolocation not supported in this browser'); navigator.geolocation.getCurrentPosition((pos) => setImages(images.map((im) => ({ ...im, lat: Number(pos.coords.latitude.toFixed(6)), lng: Number(pos.coords.longitude.toFixed(6)), capturedAt: new Date().toISOString() }))), (e) => setErr('GPS permission denied: ' + e.message)); }}>📍 Use My Live GPS</button>
-      <button type="button" className="ghost" onClick={async () => { try { const stream = await navigator.mediaDevices.getUserMedia({ video: true }); const v = document.getElementById('vt-cam'); v.srcObject = stream; v.style.display = 'block'; document.getElementById('vt-shoot').style.display = 'inline-block'; } catch (e) { setErr('Camera unavailable: ' + e.message); } }}>📷 Open Camera (Device Camera API)</button>
-      <button type="button" id="vt-shoot" className="green" style={{display:'none'}} onClick={() => { const v = document.getElementById('vt-cam'); const c = document.getElementById('vt-canvas'); c.width = v.videoWidth || 640; c.height = v.videoHeight || 480; c.getContext('2d').drawImage(v, 0, 0); const data = c.toDataURL('image/jpeg', 0.7); let h = 0; for (const ch of data) h = ((h << 5) - h + ch.charCodeAt(0)) | 0; setImages(images.map((im, idx) => idx === 0 ? { ...im, imageHash: 'cam-' + Math.abs(h).toString(16) + data.length, originalName: 'camera-capture.jpg', capturedAt: new Date().toISOString() } : im)); v.srcObject?.getTracks().forEach((tr) => tr.stop()); v.style.display = 'none'; document.getElementById('vt-shoot').style.display = 'none'; }}>Capture Front Photo</button>
+    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+      <Btn ghost action={async () => { if (!navigator.geolocation) throw new Error('Geolocation not supported'); const pos = await new Promise((res, rej) => navigator.geolocation.getCurrentPosition(res, rej)); setImages(images.map((im) => ({ ...im, lat: Number(pos.coords.latitude.toFixed(6)), lng: Number(pos.coords.longitude.toFixed(6)), capturedAt: new Date().toISOString() }))); setDone('Live GPS stamped on all photos ✓'); }}>📍 Use My Live GPS</Btn>
+      <Btn ghost action={async () => { try { const stream = await navigator.mediaDevices.getUserMedia({ video: true }); const v = document.getElementById('vt-cam'); v.srcObject = stream; v.style.display = 'block'; document.getElementById('vt-shoot').style.display = 'inline-flex'; } catch (e) { throw new Error('Camera unavailable: ' + e.message); } }}>📷 Open Camera</Btn>
+      <span id="vt-shoot" style={{ display: 'none' }}><Btn green action={async () => { const v = document.getElementById('vt-cam'); const c = document.getElementById('vt-canvas'); c.width = v.videoWidth || 640; c.height = v.videoHeight || 480; c.getContext('2d').drawImage(v, 0, 0); const data = c.toDataURL('image/jpeg', 0.7); let h = 0; for (const ch of data) h = ((h << 5) - h + ch.charCodeAt(0)) | 0; setImages(images.map((im, idx) => idx === 0 ? { ...im, imageHash: 'cam-' + Math.abs(h).toString(16) + data.length, originalName: 'camera-capture.jpg', capturedAt: new Date().toISOString() } : im)); v.srcObject?.getTracks().forEach((tr) => tr.stop()); v.style.display = 'none'; document.getElementById('vt-shoot').style.display = 'none'; setDone('Front photo captured from camera ✓'); }}>Capture Front Photo</Btn></span>
     </div>
-    <video id="vt-cam" autoPlay playsInline style={{display:'none',width:'100%',maxHeight:260,borderRadius:12,background:'#000'}}></video><canvas id="vt-canvas" style={{display:'none'}}></canvas>
-    <label>Geotagged photos — upload real photos or keep simulated metadata (category · lat · lng · time · hash used by killfake checks)</label>
-    {images.map((im, i) => <div key={i} className="row"><div><span className="pill">{im.category}</span> <span className="muted">{im.lat}, {im.lng} · {fmtDate(im.capturedAt)}</span></div><div><input type="file" accept="image/*,.pdf" onChange={(e) => upload(e, i)} /></div></div>)}
-    <label>Observed damages</label>{damages.map((d, i) => <div key={i} className="row"><input value={d.part} onChange={(e) => setDamages(damages.map((x, j) => j === i ? { ...x, part: e.target.value } : x))} /><select value={d.severity} onChange={(e) => setDamages(damages.map((x, j) => j === i ? { ...x, severity: e.target.value } : x))}><option>Small</option><option>Medium</option><option>Large</option></select></div>)}
-    <button className="ghost" onClick={() => setDamages([...damages, { part: '', type: 'dent', severity: 'Medium', description: '' }])}>+ Add damage</button>{' '}
-    <button onClick={async () => { try { await api(`/jobs/${job.id}/inspection`, { method: 'POST', body: JSON.stringify({ ...f, manualValuation: Number(f.manualValuation), condition: { engine: 4, body: 4, tires: 3, interior: 4 }, damages, images, documents: [{ type: 'RC' }, { type: 'INSURANCE' }, { type: 'POLLUTION' }] }) }); localStorage.removeItem(draftKey); reload(); } catch (e) { setErr(e.message); } }}>Submit Inspection · Get Instant Pay + Run AI</button>
-    <p className="muted">On submit: ₹1,200 instant payment posts, AI damage/fraud runs, dual valuation & Red/Green flag are computed automatically.</p></div>;
+    <video id="vt-cam" autoPlay playsInline style={{ display: 'none', width: '100%', maxHeight: 260, borderRadius: 12, background: '#000' }}></video><canvas id="vt-canvas" style={{ display: 'none' }}></canvas>
+    <label>Geotagged photos — upload real photos (hashed for killfake checks) or keep the pre-filled geo/time metadata</label>
+    {images.map((im, i) => <div key={i} className="row"><div><span className="pill">{im.category}</span> <span className="muted">{im.lat}, {im.lng} · {fmtDate(im.capturedAt)}{im.originalName ? ` · ${im.originalName} ✓` : ''}</span></div><div><input type="file" accept="image/*,.pdf" onChange={(e) => upload(e, i)} /></div></div>)}
+    <label>Observed damages</label>{damages.map((d, i) => <div key={i} className="row"><input value={d.part} onChange={(e) => setDamages(damages.map((x, j) => j === i ? { ...x, part: e.target.value } : x))} placeholder="Part e.g. Front bumper" /><select value={d.severity} onChange={(e) => setDamages(damages.map((x, j) => j === i ? { ...x, severity: e.target.value } : x))}><option>Small</option><option>Medium</option><option>Large</option></select></div>)}
+    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}><Btn ghost action={async () => setDamages([...damages, { part: '', type: 'dent', severity: 'Medium', description: '' }])}>+ Add damage</Btn>
+    <Btn action={async () => { if (!f.manualValuation) throw new Error('Enter your manual valuation first'); await api(`/jobs/${job.id}/inspection`, { method: 'POST', body: JSON.stringify({ ...f, manualValuation: Number(f.manualValuation), condition: { engine: 4, body: 4, tires: 3, interior: 4 }, damages, images, documents: [{ type: 'RC' }, { type: 'INSURANCE' }, { type: 'POLLUTION' }] }) }); localStorage.removeItem(draftKey); await reload(); }}>Submit Inspection · Instant Pay + AI →</Btn></div>
+    <p className="muted">On submit: ₹1,200 instant pay posts, AI damage/fraud runs, dual valuation & Red/Green flag compute automatically. Draft auto-saves offline as you type.</p></div>;
 }
-function BankFeedbackBox({ job, reload }) {
-  const [r, setR] = useState({ reportQuality: 5, timeliness: 5, accuracy: 5, comment: '' }); const [err, setErr] = useState('');
-  return <div style={{ marginTop: 14 }}><h3>Bank Feedback on Report</h3>{err && <div className="err">{err}</div>}
-    {['reportQuality', 'timeliness', 'accuracy'].map((k) => <div key={k}><label>{k} (1–5): {r[k]}</label><input type="range" min="1" max="5" value={r[k]} onChange={(e) => setR({ ...r, [k]: Number(e.target.value) })} /></div>)}
-    <label>Comment</label><input value={r.comment} onChange={(e) => setR({ ...r, comment: e.target.value })} />
-    <button onClick={async () => { try { await api(`/jobs/${job.id}/bank-feedback`, { method: 'POST', body: JSON.stringify(r) }); reload(); } catch (e) { setErr(e.message); } }}>Submit Bank Feedback</button></div>;
-}
+
 function AuditBox({ job, reload }) {
-  const [finalValuation, setFinal] = useState(''); const [note, setNote] = useState(''); const [err, setErr] = useState('');
-  const send = async (action) => { try { await api(`/jobs/${job.id}/audit`, { method: 'POST', body: JSON.stringify({ action, finalValuation: finalValuation ? Number(finalValuation) : undefined, note }) }); reload(); } catch (e) { setErr(e.message); } };
-  return <div style={{ marginTop: 14 }}><h3>🔴 Red Flag Audit (Admin)</h3>{err && <div className="err">{err}</div>}<label>Senior-approved final valuation (₹, blank = average)</label><input type="number" value={finalValuation} onChange={(e) => setFinal(e.target.value)} /><label>Audit note</label><input value={note} onChange={(e) => setNote(e.target.value)} />
-    <div style={{ display: 'flex', gap: 8 }}><button className="green" onClick={() => send('APPROVE')}>Approve</button><button onClick={() => send('SENIOR_REVIEW')}>Senior Review Approve</button><button className="danger" onClick={() => send('RE_INSPECTION')}>Order Re-inspection</button></div></div>;
+  const [finalValuation, setFinal] = useState(''); const [note, setNote] = useState('');
+  return <div style={{ marginTop: 14 }}><h3>🔴 Red Flag Audit (Admin / Senior Review)</h3><label>Senior-approved final valuation (₹, blank = average of AI + manual)</label><input type="number" value={finalValuation} onChange={(e) => setFinal(e.target.value)} /><label>Audit note</label><input value={note} onChange={(e) => setNote(e.target.value)} />
+    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+      <Btn green action={async () => { await api(`/jobs/${job.id}/audit`, { method: 'POST', body: JSON.stringify({ action: 'APPROVE', finalValuation: finalValuation ? Number(finalValuation) : undefined, note }) }); await reload(); }}>✓ Approve</Btn>
+      <Btn action={async () => { await api(`/jobs/${job.id}/audit`, { method: 'POST', body: JSON.stringify({ action: 'SENIOR_REVIEW', finalValuation: finalValuation ? Number(finalValuation) : undefined, note }) }); await reload(); }}>Senior Review Approve</Btn>
+      <Btn danger action={async () => { await api(`/jobs/${job.id}/audit`, { method: 'POST', body: JSON.stringify({ action: 'RE_INSPECTION', note }) }); await reload(); }}>↺ Order Re-inspection</Btn></div></div>;
 }
 function RateBox({ job, reload }) {
-  const [r, setR] = useState({ professionalism: 5, punctuality: 5, communication: 5, thoroughness: 5, feedback: '' }); const [err, setErr] = useState('');
-  return <div style={{ marginTop: 14 }}><h3>Rate your inspector</h3>{err && <div className="err">{err}</div>}
+  const [r, setR] = useState({ professionalism: 5, punctuality: 5, communication: 5, thoroughness: 5, feedback: '' });
+  return <div style={{ marginTop: 14 }}><h3>⭐ Rate your inspector</h3>
     {['professionalism', 'punctuality', 'communication', 'thoroughness'].map((k) => <div key={k}><label>{k} (1–5): {r[k]}</label><input type="range" min="1" max="5" value={r[k]} onChange={(e) => setR({ ...r, [k]: Number(e.target.value) })} /></div>)}
     <label>Feedback</label><input value={r.feedback} onChange={(e) => setR({ ...r, feedback: e.target.value })} />
-    <button onClick={async () => { try { await api(`/jobs/${job.id}/rate`, { method: 'POST', body: JSON.stringify(r) }); reload(); } catch (e) { setErr(e.message); } }}>Submit Rating</button></div>;
+    <Btn action={async () => { await api(`/jobs/${job.id}/rate`, { method: 'POST', body: JSON.stringify(r) }); await reload(); }}>Submit Rating →</Btn></div>;
+}
+function BankFeedbackBox({ job, reload }) {
+  const [r, setR] = useState({ reportQuality: 5, timeliness: 5, accuracy: 5, comment: '' });
+  return <div style={{ marginTop: 14 }}><h3>🏦 Bank Feedback on Report</h3>
+    {['reportQuality', 'timeliness', 'accuracy'].map((k) => <div key={k}><label>{k} (1–5): {r[k]}</label><input type="range" min="1" max="5" value={r[k]} onChange={(e) => setR({ ...r, [k]: Number(e.target.value) })} /></div>)}
+    <label>Comment</label><input value={r.comment} onChange={(e) => setR({ ...r, comment: e.target.value })} />
+    <Btn action={async () => { await api(`/jobs/${job.id}/bank-feedback`, { method: 'POST', body: JSON.stringify(r) }); await reload(); }}>Submit Bank Feedback →</Btn></div>;
+}
+
+function JobDetail({ job, user, reload, onClose }) {
+  if (!job) return null; const v = job.valuation;
+  return <div className="card" style={{ border: '2px solid #0b6bcb' }}><div style={{ display: 'flex', justifyContent: 'space-between' }}><h2>{job.make} {job.model} {job.variant || ''} ({job.year}) · {job.regNumber}</h2><Btn ghost action={async () => onClose()}>✕ Close</Btn></div><Stepper status={job.status} />
+    <p><StatusPill s={job.status} /> <span className="muted">Loan: {job.loanRef || '—'} · Seeker: {job.seekerName} · Fee: {inr(job.valuationFee)} · Mode: {job.allocationMode} · Radius: {job.broadcastRadiusKm} km</span></p>
+    {job.verification && <details open><summary><b>Vehicle Verification (VAHAN / IIB)</b></summary><table><tbody>{job.verification.checks?.map((c) => <tr key={c.name}><td>{c.name}</td><td>{c.status}</td><td>{c.detail}</td></tr>)}</tbody></table><p className="muted">Accidents: {job.verification.history?.accidentCount} · Claims: {job.verification.history?.claimCount} · Owners: {job.verification.ownership?.ownersCount} · Insurance valid: {job.verification.insurance?.valid ? 'Yes' : 'No'}</p></details>}
+    {job.assignedInspector && <p>Inspector: <b>{job.assignedInspector.name}</b> ★ {job.assignedInspector.rating} ({job.assignedInspector.status})</p>}
+    {!job.assignedInspector && job.eligibleInspectors?.length > 0 && <p className="muted">Eligible inspectors in radius: {job.eligibleInspectors.map((i) => `${i.name} ★${i.rating} (${i.distanceKm} km)`).join(' · ')}</p>}
+    {v && <div><h3>Dual Valuation</h3><table><tbody><tr><td>Market (DeepSearch)</td><td>{inr(v.marketValue)}</td><td>AI Valuation</td><td>{inr(v.aiValuation)}</td></tr><tr><td>Manual Valuation</td><td>{inr(v.manualValuation)}</td><td>Variance</td><td>{v.variancePct}% <span className={`flag ${v.flag}`}>{v.flag} FLAG</span></td></tr><tr><td>Final Valuation</td><td><b>{inr(v.finalValuation)}</b></td><td>Status</td><td>{v.status}</td></tr></tbody></table><p className="muted">{(v.varianceReasons || []).join('; ')}</p></div>}
+    {job.analysis && user.role !== 'LOAN_SEEKER' && <details open><summary><b>AI Damage & Fraud (killfake.ai)</b></summary><p>Damage total: {inr(job.analysis.damage.costBreakdown.totalDamageCost)} · Tire wear {job.analysis.damage.tireWearPct}% · Fraud: <b>{job.analysis.fraud.riskLevel} ({job.analysis.fraud.fraudScore}/100)</b></p><table><tbody>{job.analysis.fraud.checks.map((c) => <tr key={c.name}><td>{c.name}</td><td>{c.status}</td><td>{c.detail}</td></tr>)}</tbody></table></details>}
+    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
+      {user.role === 'INSPECTOR' && job.status === 'BROADCAST' && <Btn action={async () => { await api(`/jobs/${job.id}/accept`, { method: 'POST' }); await reload(); }}>✓ Accept Job (exclusive)</Btn>}
+      {user.role === 'INSPECTOR' && job.status === 'ASSIGNED' && <Btn action={async () => { await api(`/jobs/${job.id}/start`, { method: 'POST' }); await reload(); }}>▶ Start Inspection</Btn>}
+      {v?.finalValuation && <Btn ghost action={() => openAuthed(`/api/jobs/${job.id}/report`)}>📄 View {user.role === 'LOAN_SEEKER' ? 'Summary' : 'Full'} Report</Btn>}
+      {v?.finalValuation && <Btn ghost action={() => openAuthed(`/api/jobs/${job.id}/report.pdf`)}>⬇ Download PDF</Btn>}
+      {(user.role === 'BANK' || user.role === 'ADMIN') && job.status === 'REPORT_DELIVERED' && <Btn green action={async () => { await api(`/jobs/${job.id}/settle`, { method: 'POST' }); await reload(); }}>💰 Settle Payment</Btn>}
+      {(user.role === 'ADMIN' || user.role === 'BANK') && job.status === 'AUDIT_REQUIRED' && user.role === 'BANK' && <span className="muted">⏳ Waiting for Admin audit (RED flag)</span>}
+    </div>
+    {user.role === 'INSPECTOR' && ['ASSIGNED', 'INSPECTION_IN_PROGRESS'].includes(job.status) && <InspectionForm job={job} reload={reload} />}
+    {user.role === 'ADMIN' && job.status === 'AUDIT_REQUIRED' && <AuditBox job={job} reload={reload} />}
+    {user.role === 'LOAN_SEEKER' && job.status === 'REPORT_DELIVERED' && !job.rating && <RateBox job={job} reload={reload} />}
+    {user.role === 'BANK' && ['REPORT_DELIVERED', 'SETTLED'].includes(job.status) && !job.bankFeedback && <BankFeedbackBox job={job} reload={reload} />}
+    {job.rating && <p className="ok">Rating: Seeker {job.rating.seekerScore}/5 · Platform {job.rating.platformScore}/5 · <b>Composite {job.rating.composite}/5</b> (0.4×Seeker + 0.6×Platform)</p>}
+    {job.bankFeedback && <p className="ok">Bank feedback: <b>{job.bankFeedback.avgScore}/5</b></p>}
+    {job.analysis && user.role !== 'LOAN_SEEKER' && <div className="card" style={{ display: 'flex', gap: 18, flexWrap: 'wrap' }}><FraudGauge score={job.analysis.fraud.fraudScore} risk={job.analysis.fraud.riskLevel} /><CarTwin detections={job.analysis.damage.detections} /><div style={{ flex: 1, minWidth: 260 }}><AiScanPanel analysis={job.analysis} /></div></div>}
+    {user.role !== 'LOAN_SEEKER' && <div className="card"><LiveMap job={job} /><MarketChart make={job.make} model={job.model} /></div>}
+    {user.role !== 'LOAN_SEEKER' && job.ledger?.length > 0 && <details open><summary><b>Payments & Ledger</b></summary><table><tbody>{job.ledger.map((l) => <tr key={l.id}><td>{l.type}</td><td>{l.fromParty} → {l.toParty}</td><td>{inr(l.amount)}</td><td>{l.status}</td></tr>)}</tbody></table></details>}
+  </div>;
 }
 
 function Dashboard() {
-  const user = sessionUser(); const nav = useNavigate(); const [jobs, setJobs] = useState([]); const [sel, setSel] = useState(null); const [overview, setOverview] = useState(null); const [inspectors, setInspectors] = useState([]); const [ledger, setLedger] = useState([]); const [notifs, setNotifs] = useState([]); const [tab, setTab] = useState('jobs'); const [err, setErr] = useState('');
+  const user = sessionUser(); const nav = useNavigate();
+  const [jobs, setJobs] = useState([]); const [selId, setSelId] = useState(null); const [overview, setOverview] = useState(null);
+  const [inspectors, setInspectors] = useState([]); const [ledger, setLedger] = useState([]); const [notifs, setNotifs] = useState([]);
+  const [tab, setTab] = useState('jobs'); const [err, setErr] = useState(''); const [banner, setBanner] = useState('');
   const [liveEvents, setLiveEvents] = useState([]); const [liveOn, setLiveOn] = useState(false);
-  useEffect(() => { const proto = location.protocol === 'https:' ? 'wss' : 'ws'; const ws = new WebSocket(`${proto}://${location.host}/ws?token=${encodeURIComponent(token() || '')}`); ws.onopen = () => setLiveOn(true); ws.onclose = () => setLiveOn(false); ws.onmessage = (e) => { try { const m = JSON.parse(e.data); if (m.type !== 'CONNECTED' && m.type !== 'PONG') { setLiveEvents((prev) => [m, ...prev].slice(0, 12)); reload(); } } catch { /* keep UI resilient */ } }; const ping = setInterval(() => { try { ws.send(JSON.stringify({ type: 'PING' })); } catch { /* noop */ } }, 25000); return () => { clearInterval(ping); ws.close(); }; }, []);
   const [jobForm, setJobForm] = useState({ seekerName: 'Demo Loan Seeker', seekerPhone: '+919000000006', seekerEmail: 'seeker@valuation.techno', loanRef: 'LOAN-1001', regNumber: 'TN38AB1234', make: 'Hyundai', model: 'Creta', variant: 'SX', year: 2020, fuel: 'Petrol', vehicleLat: 11.0168, vehicleLng: 76.9558, city: 'Coimbatore', expectedOdometer: 45000, valuationFee: 2500 });
-  const reload = async () => { try { const j = await api('/jobs'); setJobs(j); if (sel) setSel(j.find((x) => x.id === sel.id) || null);
+  const sel = jobs.find((j) => j.id === selId) || null;
+  const reload = async () => {
+    const j = await api('/jobs'); setJobs(j);
     if (user.role === 'ADMIN' || user.role === 'BANK') { setOverview(await api('/admin/overview')); setLedger(await api('/admin/ledger')); if (user.role === 'ADMIN') setInspectors(await api('/admin/inspectors')); }
-    if (user.role === 'INSPECTOR') setLedger(await api('/admin/ledger')); setNotifs(await api('/admin/notifications')); } catch (e) { setErr(e.message); } };
-  useEffect(() => { reload(); }, []);
+    if (user.role === 'INSPECTOR') setLedger(await api('/admin/ledger'));
+    setNotifs(await api('/admin/notifications')); return j;
+  };
+  useEffect(() => { reload().catch((e) => setErr(e.message)); }, []);
+  useEffect(() => { // live channel: updates the data, but market ticks must not force full reloads
+    const proto = location.protocol === 'https:' ? 'wss' : 'ws'; const ws = new WebSocket(`${proto}://${location.host}/ws?token=${encodeURIComponent(token() || '')}`);
+    ws.onopen = () => setLiveOn(true); ws.onclose = () => setLiveOn(false);
+    ws.onmessage = (e) => { try { const m = JSON.parse(e.data); if (['CONNECTED', 'PONG', 'MARKET_TICK'].includes(m.type)) return; setLiveEvents((p) => [m, ...p].slice(0, 12)); setBanner(`⚡ ${m.type} ${m.regNumber || ''}`); reload().catch(() => {}); } catch { /* resilient */ } };
+    const ping = setInterval(() => { try { ws.send(JSON.stringify({ type: 'PING' })); } catch { /* noop */ } }, 25000);
+    return () => { clearInterval(ping); ws.close(); };
+  }, []);
   if (!user) return <Navigate to="/" />;
+  const meta = ROLE_META[user.role] || ROLE_META.LOAN_SEEKER;
+  const available = jobs.filter((j) => j.status === 'BROADCAST');
+  const myTasks = jobs.filter((j) => j.assignedInspector?.id === user.id || (j.status !== 'BROADCAST' && user.role === 'INSPECTOR'));
+  const auditQueue = jobs.filter((j) => j.status === 'AUDIT_REQUIRED');
+  const toSettle = jobs.filter((j) => j.status === 'REPORT_DELIVERED');
   const earnings = ledger.filter((l) => ['INSPECTOR_INSTANT_PAY', 'INSPECTOR_BONUS'].includes(l.type)).reduce((s, l) => s + l.amount, 0);
-  return <div><header className="topbar"><div><div className="brand">Valuation <span>Techno</span></div><div className="tag">Smart Valuation. Safer Transactions.</div></div><div>{user.name} · {user.role}<br /><button className="ghost" onClick={() => { clearSession(); nav('/'); }}>Logout</button></div></header>
-  <div className="wrap">{err && <div className="err">{err}</div>}
-    <div className="toastbar"><span className="live-dot"></span> {liveOn ? "LIVE — real-time updates connected (no refresh needed)" : "Connecting live channel…"}{liveEvents[0] ? ` · Latest: ${liveEvents[0].type} ${liveEvents[0].regNumber || ""} ${liveEvents[0].flag || ""}` : ""}</div>
-    {liveEvents.length > 0 && <div className="card"><b>⚡ Live Activity</b>{liveEvents.slice(0, 5).map((e, i) => <div key={i} className="muted">{new Date(e.at).toLocaleTimeString("en-IN")} — {e.type} {e.regNumber || ""} {e.inspector || ""} {e.flag ? e.flag + " FLAG" : ""} {e.composite ? "★" + e.composite : ""}</div>)}</div>}
-    <div className="grid"><div className="card"><div className="muted">Jobs visible</div><div className="stat">{jobs.length}</div></div>
-      {overview && <><div className="card"><div className="muted">Audit required (RED)</div><div className="stat">{overview.auditRequired}</div></div><div className="card"><div className="muted">Reports delivered</div><div className="stat">{overview.delivered}</div></div><div className="card"><div className="muted">Settled value</div><div className="stat">{inr(overview.ledgerTotal)}</div></div></>}
-      {user.role === 'INSPECTOR' && <div className="card"><div className="muted">My earnings (instant pay + bonus)</div><div className="stat">{inr(earnings)}</div><div className="muted">Rating: ★ {user.rating}</div></div>}
-      <div className="card"><div className="muted">Notifications</div><div className="stat">{notifs.length}</div><div className="muted">{notifs[0]?.title || 'No notifications'}</div></div></div>
+  const open = (j) => { setSelId(j.id); document.getElementById('job-detail')?.scrollIntoView({ behavior: 'smooth' }); };
+  return <div><header className="topbar" style={{ background: meta.color }}><div><div className="brand">{meta.icon} Valuation <span>Techno</span></div><div className="tag">{meta.title} · {meta.home}</div></div>
+    <div style={{ textAlign: 'right' }}>{user.name} · <b>{user.role}</b>{user.role === 'INSPECTOR' ? ` · ★ ${user.rating}` : ''}<br /><Btn ghost action={async () => { clearSession(); nav('/'); }}>Logout</Btn></div></header>
+  <div className="wrap">{err && <div className="err">{err}</div>}{banner && <div className="ok">{banner} <Btn ghost action={async () => setBanner('')}>OK</Btn></div>}
+    <div className="toastbar"><span className="live-dot"></span> {liveOn ? 'LIVE — real-time updates connected (no refresh needed)' : 'Connecting live channel…'}{liveEvents[0] ? ` · Latest: ${liveEvents[0].type} ${liveEvents[0].regNumber || ''}` : ''}</div>
 
-    {user.role === 'BANK' && <div className="card"><h2>Phase 1 — Create Valuation Job</h2><div className="row"><div><label>Loan seeker name</label><input value={jobForm.seekerName} onChange={(e) => setJobForm({ ...jobForm, seekerName: e.target.value })} /></div><div><label>Registration number</label><input value={jobForm.regNumber} onChange={(e) => setJobForm({ ...jobForm, regNumber: e.target.value })} /></div></div>
+    {user.role === 'BANK' && <><div className="grid"><div className="card"><div className="muted">My valuation jobs</div><div className="stat">{jobs.length}</div></div><div className="card"><div className="muted">Waiting audit (RED)</div><div className="stat">{overview?.auditRequired ?? '—'}</div></div><div className="card"><div className="muted">Reports delivered</div><div className="stat">{overview?.delivered ?? '—'}</div></div><div className="card"><div className="muted">Settled via platform</div><div className="stat">{inr(overview?.ledgerTotal)}</div></div></div>
+    <div className="card"><h2>🏦 Phase 1 — Create Valuation Job</h2>
+      <div className="row"><div><label>Loan seeker name</label><input value={jobForm.seekerName} onChange={(e) => setJobForm({ ...jobForm, seekerName: e.target.value })} /></div><div><label>Seeker email (seeker login sees this job)</label><input value={jobForm.seekerEmail} onChange={(e) => setJobForm({ ...jobForm, seekerEmail: e.target.value })} /></div></div>
+      <div className="row"><div><label>Registration number</label><input value={jobForm.regNumber} onChange={(e) => setJobForm({ ...jobForm, regNumber: e.target.value })} /></div><div><label>Loan reference</label><input value={jobForm.loanRef} onChange={(e) => setJobForm({ ...jobForm, loanRef: e.target.value })} /></div></div>
       <div className="row"><div><label>Make</label><input value={jobForm.make} onChange={(e) => setJobForm({ ...jobForm, make: e.target.value })} /></div><div><label>Model</label><input value={jobForm.model} onChange={(e) => setJobForm({ ...jobForm, model: e.target.value })} /></div></div>
       <div className="row"><div><label>Year</label><input type="number" value={jobForm.year} onChange={(e) => setJobForm({ ...jobForm, year: Number(e.target.value) })} /></div><div><label>Vehicle GPS (lat, lng)</label><input value={`${jobForm.vehicleLat}, ${jobForm.vehicleLng}`} onChange={(e) => { const [a, b] = e.target.value.split(',').map(Number); setJobForm({ ...jobForm, vehicleLat: a, vehicleLng: b }); }} /></div></div>
-      <button onClick={async () => { try { const j = await api('/jobs', { method: 'POST', body: JSON.stringify(jobForm) }); setSel(j); reload(); } catch (e) { setErr(e.message); } }}>Verify Vehicle + Broadcast to Inspectors</button>
-      <p className="muted">Try plates: TN38AB1234 (Hyundai Creta pricing) · any valid Indian format works. Creation auto-runs VAHAN/IIB verification & radius broadcast.</p></div>}
+      <Btn action={async () => { const j = await api('/jobs', { method: 'POST', body: JSON.stringify(jobForm) }); await reload(); setSelId(j.id); setBanner(`✓ Job ${j.regNumber} verified & broadcast to inspectors`); }}>Verify Vehicle + Broadcast →</Btn>
+      <p className="muted">On create: VAHAN RC + IIB insurance/claims check runs, seeker fee posts, nearby inspectors get it LIVE.</p></div>
+    {toSettle.length > 0 && <div className="card"><h3>💰 Ready to Settle ({toSettle.length})</h3>{toSettle.map((j) => <p key={j.id}>{j.regNumber} · Final {inr(j.valuation?.finalValuation)} <Btn green action={async () => { await api(`/jobs/${j.id}/settle`, { method: 'POST' }); await reload(); }}>Settle</Btn> <Btn ghost action={async () => open(j)}>Open</Btn></p>)}</div>}</>}
 
-    {user.role === 'ADMIN' && <div className="card"><h2>Platform Controls</h2><p className="muted">Allocation mode: <b>{overview?.allocationMode}</b> · Radius: {overview?.radiusKm} km</p>
-      <div style={{ display: 'flex', gap: 8 }}><button onClick={async () => { await api('/admin/settings', { method: 'PATCH', body: JSON.stringify({ allocationMode: 'FIRST_COME' }) }); reload(); }}>First-Come Mode</button><button onClick={async () => { await api('/admin/settings', { method: 'PATCH', body: JSON.stringify({ allocationMode: 'RATING_PRIORITY' }) }); reload(); }}>Rating-Priority Mode</button></div>
-      <h3>Inspectors</h3><table><thead><tr><th>Name</th><th>Rating</th><th>Jobs rated</th><th>Status</th><th>Action</th></tr></thead><tbody>{inspectors.map((i) => <tr key={i.id}><td>{i.name}<br /><span className="muted">{i.email}</span></td><td>★ {i.rating}</td><td>{i.ratingCount}</td><td>{i.status}</td><td>{['ACTIVE', 'RETRAINING', 'SUSPENDED'].map((s) => <button key={s} className="ghost" onClick={async () => { await api(`/admin/inspectors/${i.id}/status`, { method: 'PATCH', body: JSON.stringify({ status: s }) }); reload(); }}>{s}</button>)}</td></tr>)}</tbody></table></div>}
+    {user.role === 'INSPECTOR' && <><div className="grid"><div className="card"><div className="muted">Available near me</div><div className="stat">{available.length}</div></div><div className="card"><div className="muted">My earnings (pay + bonus)</div><div className="stat">{inr(earnings)}</div></div><div className="card"><div className="muted">My rating</div><div className="stat">★ {user.rating}</div><div className="muted">{user.status}</div></div></div>
+    <div className="card"><h2>📍 Jobs Near You — First to Accept Wins (exclusive)</h2>{available.length === 0 && <p className="muted">No open jobs in your radius right now. New bank jobs appear here LIVE — keep this page open.</p>}
+      {available.map((j) => { const me = j.eligibleInspectors?.find((x) => x.id === user.id); return <p key={j.id}><b>{j.make} {j.model} ({j.year})</b> · {j.regNumber} · {me ? `${me.distanceKm} km away` : 'check eligibility'} <Btn action={async () => { await api(`/jobs/${j.id}/accept`, { method: 'POST' }); await reload(); setSelId(j.id); setBanner(`✓ You are assigned to ${j.regNumber}`); }}>✓ Accept Job</Btn> <Btn ghost action={async () => open(j)}>Details</Btn></p>; })}</div></>}
 
-    <div className="tabs"><button className={tab === 'jobs' ? 'on' : ''} onClick={() => setTab('jobs')}>Jobs ({jobs.length})</button>{user.role !== 'LOAN_SEEKER' && <button className={tab === 'ledger' ? 'on' : ''} onClick={() => setTab('ledger')}>Payments & Ledger</button>}<button className={tab === 'notifs' ? 'on' : ''} onClick={() => setTab('notifs')}>Notifications</button>{(user.role === 'ADMIN' || user.role === 'BANK') && <button className={tab === 'analytics' ? 'on' : ''} onClick={() => setTab('analytics')}>🤖 AI Analytics</button>}</div>
-    {tab === 'jobs' && <div className="card"><table><thead><tr><th>Vehicle</th><th>Reg</th><th>Status</th><th>Valuation</th><th></th></tr></thead><tbody>{jobs.map((j) => <tr key={j.id}><td>{j.make} {j.model} ({j.year})<br /><span className="muted">{j.city || ''} · {fmtDate(j.createdAt)}</span></td><td>{j.regNumber}</td><td><StatusPill s={j.status} /></td><td>{j.valuation?.finalValuation ? inr(j.valuation.finalValuation) : j.valuation ? `${j.valuation.variancePct}% ${j.valuation.flag}` : '—'}</td><td><button className="ghost" onClick={() => setSel(j)}>Open</button></td></tr>)}</tbody></table>{jobs.length === 0 && <p className="muted">No jobs yet. {user.role === 'BANK' ? 'Create the first job above.' : 'Waiting for bank jobs in your radius.'}</p>}</div>}
-    {tab === 'ledger' && <div className="card"><table><thead><tr><th>Type</th><th>From → To</th><th>Amount</th><th>Status</th><th>Date</th></tr></thead><tbody>{ledger.map((l) => <tr key={l.id}><td>{l.type}</td><td>{l.fromParty} → {l.toParty}</td><td>{inr(l.amount)}</td><td>{l.status}</td><td>{fmtDate(l.createdAt)}</td></tr>)}</tbody></table></div>}
+    {user.role === 'LOAN_SEEKER' && <div className="card"><h2>🚗 My Valuation Journey</h2>{jobs.length === 0 && <p className="muted">No valuation linked to your email/phone yet. Ask your bank to create a job with your email (<b>{user.email}</b>) — it will appear here LIVE.</p>}
+      {jobs.map((j) => <div key={j.id} style={{ borderBottom: '1px solid #dbe5ef', padding: '10px 0' }}><b>{j.make} {j.model} ({j.year})</b> · {j.regNumber} <StatusPill s={j.status} />{j.valuation?.finalValuation ? <span> · Final Valuation <b>{inr(j.valuation.finalValuation)}</b></span> : <span className="muted"> · Valuation in progress…</span>}
+      <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>{j.valuation?.finalValuation && <Btn ghost action={() => openAuthed(`/api/jobs/${j.id}/report`)}>📄 My Summary Report</Btn>}<Btn ghost action={async () => open(j)}>{j.status === 'REPORT_DELIVERED' && !j.rating ? '⭐ Rate Inspector' : 'Track →'}</Btn></div></div>)}</div>}
+
+    {user.role === 'ADMIN' && <><div className="grid"><div className="card"><div className="muted">Total jobs</div><div className="stat">{overview?.jobsTotal ?? '—'}</div></div><div className="card"><div className="muted">🔴 Audit queue</div><div className="stat">{auditQueue.length}</div></div><div className="card"><div className="muted">Settled value</div><div className="stat">{inr(overview?.ledgerTotal)}</div></div><div className="card"><div className="muted">Allocation mode</div><div className="stat" style={{ fontSize: 18 }}>{overview?.allocationMode}</div></div></div>
+    <div className="card"><h2>🔴 RED-Flag Audit Queue ({auditQueue.length})</h2>{auditQueue.length === 0 && <p className="muted">No jobs waiting for audit. RED-flag jobs (variance &gt; 5%) land here instantly.</p>}
+      {auditQueue.map((j) => <p key={j.id}>{j.regNumber} · Variance {j.valuation?.variancePct}% · AI {inr(j.valuation?.aiValuation)} vs Manual {inr(j.valuation?.manualValuation)} <Btn action={async () => open(j)}>Review & Decide →</Btn></p>)}
+      <h3>Allocation Mode (Phase 1 evolution)</h3><div style={{ display: 'flex', gap: 8 }}><Btn ghost action={async () => { await api('/admin/settings', { method: 'PATCH', body: JSON.stringify({ allocationMode: 'FIRST_COME' }) }); await reload(); }}>First-Come Mode</Btn><Btn ghost action={async () => { await api('/admin/settings', { method: 'PATCH', body: JSON.stringify({ allocationMode: 'RATING_PRIORITY' }) }); await reload(); }}>Rating-Priority Mode</Btn></div>
+      <h3>Inspectors</h3><table><thead><tr><th>Name</th><th>Rating</th><th>Rated</th><th>Status</th><th>Set Status</th></tr></thead><tbody>{inspectors.map((i) => <tr key={i.id}><td>{i.name}<br /><span className="muted">{i.email}</span></td><td>★ {i.rating}</td><td>{i.ratingCount}</td><td>{i.status}</td><td>{['ACTIVE', 'RETRAINING', 'SUSPENDED'].map((s) => <Btn key={s} ghost action={async () => { await api(`/admin/inspectors/${i.id}/status`, { method: 'PATCH', body: JSON.stringify({ status: s }) }); await reload(); }}>{s}</Btn>)}</td></tr>)}</tbody></table></div></>}
+
+    <div className="tabs"><button className={tab === 'jobs' ? 'on' : ''} onClick={() => setTab('jobs')}>All Jobs ({jobs.length})</button>{user.role !== 'LOAN_SEEKER' && <button className={tab === 'ledger' ? 'on' : ''} onClick={() => setTab('ledger')}>Payments & Ledger</button>}<button className={tab === 'notifs' ? 'on' : ''} onClick={() => setTab('notifs')}>Notifications ({notifs.filter((n) => !n.isRead).length})</button>{(user.role === 'ADMIN' || user.role === 'BANK') && <button className={tab === 'analytics' ? 'on' : ''} onClick={() => setTab('analytics')}>🤖 AI Analytics</button>}</div>
+    {tab === 'jobs' && <div className="card"><table><thead><tr><th>Vehicle</th><th>Reg</th><th>Status</th><th>Valuation</th><th>Action</th></tr></thead><tbody>{jobs.map((j) => <tr key={j.id}><td>{j.make} {j.model} ({j.year})<br /><span className="muted">{fmtDate(j.createdAt)}</span></td><td>{j.regNumber}</td><td><StatusPill s={j.status} /></td><td>{j.valuation?.finalValuation ? inr(j.valuation.finalValuation) : j.valuation ? `${j.valuation.variancePct}% ${j.valuation.flag}` : '—'}</td><td><Btn ghost action={async () => open(j)}>Open →</Btn></td></tr>)}</tbody></table>{jobs.length === 0 && <p className="muted">No jobs yet.</p>}</div>}
+    {tab === 'ledger' && user.role !== 'LOAN_SEEKER' && <div className="card"><table><thead><tr><th>Type</th><th>From → To</th><th>Amount</th><th>Status</th><th>Date</th></tr></thead><tbody>{ledger.map((l) => <tr key={l.id}><td>{l.type}</td><td>{l.fromParty} → {l.toParty}</td><td>{inr(l.amount)}</td><td>{l.status}</td><td>{fmtDate(l.createdAt)}</td></tr>)}</tbody></table>{ledger.length === 0 && <p className="muted">No transactions yet.</p>}</div>}
+    {tab === 'notifs' && <div className="card">{notifs.map((n) => <p key={n.id}><b>{n.title}</b><br /><span className="muted">{n.body} · {fmtDate(n.createdAt)}</span></p>)}{notifs.length === 0 && <p className="muted">No notifications yet.</p>}</div>}
     {tab === 'analytics' && <AnalyticsPanel />}
-    {tab === 'notifs' && <div className="card">{notifs.map((n) => <p key={n.id}><b>{n.title}</b><br /><span className="muted">{n.body} · {fmtDate(n.createdAt)}</span></p>)}</div>}
-    {sel && <JobDetail job={sel} user={user} reload={reload} />}
+    <div id="job-detail">{sel && <JobDetail job={sel} user={user} reload={reload} onClose={() => setSelId(null)} />}</div>
   </div></div>;
 }
 export default function App() { return <Routes><Route path="/" element={token() ? <Navigate to="/dashboard" /> : <Login />} /><Route path="/dashboard" element={<Dashboard />} /><Route path="*" element={<Navigate to="/" />} /></Routes>; }
