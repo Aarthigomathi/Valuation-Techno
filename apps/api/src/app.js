@@ -27,8 +27,12 @@ app.post('/api/upload', requireAuth, requireRole('INSPECTOR', 'BANK'), upload.si
   const hash = crypto.createHash('sha256').update(fs.readFileSync(req.file.path)).digest('hex');
   res.status(201).json({ filename: req.file.filename, originalName: req.file.originalname, url: `/uploads/${req.file.filename}`, imageHash: hash, category: req.body.category || 'DAMAGE', lat: req.body.lat ? Number(req.body.lat) : undefined, lng: req.body.lng ? Number(req.body.lng) : undefined, capturedAt: req.body.capturedAt || new Date().toISOString() });
 });
-// Serve built frontend when present (single-port demo)
+// Serve built frontend when present (single-port demo). `npm start` auto-builds it via prestart.
 const webDist = fileURLToPath(new URL('../../web/dist/', import.meta.url));
 if (fs.existsSync(webDist)) { app.use(express.static(webDist, { setHeaders: (res, filePath) => { if (filePath.endsWith('index.html')) res.setHeader('Cache-Control', 'no-store, must-revalidate'); } })); app.get('/project.zip', (req, res) => res.download(fileURLToPath(new URL('../../web/dist/project.zip', import.meta.url)), 'Valuation-Techno-Project.zip')); app.get('*', (req, res, next) => req.path.startsWith('/api') ? next() : res.sendFile(path.join(webDist, 'index.html'))); }
+else {
+  // Friendly help instead of a confusing "Cannot GET /" when the frontend was not built yet
+  app.get('*', (req, res, next) => req.path.startsWith('/api') ? next() : res.status(200).type('html').send(`<!doctype html><html><body style="font-family:Arial,sans-serif;text-align:center;padding:40px"><h1>🚗 Valuation Techno — Server Running ✅</h1><p>Frontend innum build aagala. VS Code terminal-la server-a stop panni (Ctrl+C), indha commands run pannunga:</p><pre style="display:inline-block;text-align:left;background:#0f172a;color:#7dd3fc;padding:16px;border-radius:10px">npm.cmd run build\nnpm.cmd start</pre><p>Apram indha page-a refresh pannunga.</p></body></html>`));
+}
 app.use((err, req, res, next) => { console.error(err); if (err?.name === 'ZodError') return res.status(400).json({ error: 'Validation failed', details: err.errors }); res.status(err.status || 500).json({ error: err.message || 'Internal server error' }); });
 export default app;
