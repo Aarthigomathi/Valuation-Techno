@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { api, token, sessionUser, setSession, clearSession, inr, fmtDate, openAuthed, logoutApi } from './api.js';
 import { FraudGauge, CarTwin, AiScanPanel, MarketChart, LiveMap, AnalyticsPanel, ErrorBoundary } from './components/Advanced.jsx';
+import AdminControlCenter from './components/AdminDashboard.jsx';
 
 const PHASES = ['BROADCAST', 'ASSIGNED', 'INSPECTION_IN_PROGRESS', 'INSPECTION_SUBMITTED', 'AUDIT_REQUIRED', 'REPORT_DELIVERED', 'SETTLED'];
 const ROLE_META = {
@@ -127,14 +128,14 @@ function JobDetail({ job, user, reload, onClose }) {
 function Dashboard() {
   const user = sessionUser(); const nav = useNavigate();
   const [jobs, setJobs] = useState([]); const [selId, setSelId] = useState(null); const [overview, setOverview] = useState(null);
-  const [inspectors, setInspectors] = useState([]); const [ledger, setLedger] = useState([]); const [notifs, setNotifs] = useState([]);
+  const [inspectors, setInspectors] = useState([]); const [users, setUsers] = useState([]); const [ledger, setLedger] = useState([]); const [notifs, setNotifs] = useState([]);
   const [tab, setTab] = useState('jobs'); const [err, setErr] = useState(''); const [banner, setBanner] = useState('');
   const [liveEvents, setLiveEvents] = useState([]); const [liveOn, setLiveOn] = useState(false); const [createdJob, setCreatedJob] = useState(null);
   const [jobForm, setJobForm] = useState({ seekerName: 'Demo Loan Seeker', seekerPhone: '+919000000006', seekerEmail: 'seeker@valuation.techno', loanRef: 'LOAN-1001', regNumber: 'TN38AB1234', make: 'Hyundai', model: 'Creta', variant: 'SX', year: 2020, fuel: 'Petrol', vehicleLat: 11.0168, vehicleLng: 76.9558, city: 'Coimbatore', expectedOdometer: 45000, valuationFee: 2500 });
   const sel = jobs.find((j) => j.id === selId) || null;
   const reload = async () => {
     const j = await api('/jobs'); setJobs(j);
-    if (user.role === 'ADMIN' || user.role === 'BANK') { setOverview(await api('/admin/overview')); setLedger(await api('/admin/ledger')); if (user.role === 'ADMIN') setInspectors(await api('/admin/inspectors')); }
+    if (user.role === 'ADMIN' || user.role === 'BANK') { setOverview(await api('/admin/overview')); setLedger(await api('/admin/ledger')); if (user.role === 'ADMIN') { setInspectors(await api('/admin/inspectors')); setUsers(await api('/admin/users')); } }
     if (user.role === 'INSPECTOR') setLedger(await api('/admin/ledger'));
     setNotifs(await api('/admin/notifications')); return j;
   };
@@ -197,17 +198,13 @@ function Dashboard() {
       {jobs.map((j) => <div key={j.id} style={{ borderBottom: '1px solid #dbe5ef', padding: '10px 0' }}><b>{j.make} {j.model} ({j.year})</b> · {j.regNumber} <StatusPill s={j.status} />{j.valuation?.finalValuation ? <span> · Final Valuation <b>{inr(j.valuation.finalValuation)}</b></span> : <span className="muted"> · Valuation in progress…</span>}
       <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>{j.valuation?.finalValuation && <Btn ghost action={() => openAuthed(`/api/jobs/${j.id}/report`)}>📄 My Summary Report</Btn>}<Btn ghost action={async () => open(j)}>{j.status === 'REPORT_DELIVERED' && !j.rating ? '⭐ Rate Inspector' : 'Track →'}</Btn></div></div>)}</div>}
 
-    {user.role === 'ADMIN' && <><div className="grid"><div className="card"><div className="muted">Total jobs</div><div className="stat">{overview?.jobsTotal ?? '—'}</div></div><div className="card"><div className="muted">🔴 Audit queue</div><div className="stat">{auditQueue.length}</div></div><div className="card"><div className="muted">Settled value</div><div className="stat">{inr(overview?.ledgerTotal)}</div></div><div className="card"><div className="muted">Allocation mode</div><div className="stat" style={{ fontSize: 18 }}>{overview?.allocationMode}</div></div></div>
-    <div className="card"><h2>🔴 RED-Flag Audit Queue ({auditQueue.length})</h2>{auditQueue.length === 0 && <p className="muted">No jobs waiting for audit. RED-flag jobs (variance &gt; 5%) land here instantly.</p>}
-      {auditQueue.map((j) => <p key={j.id}>{j.regNumber} · Variance {j.valuation?.variancePct}% · AI {inr(j.valuation?.aiValuation)} vs Manual {inr(j.valuation?.manualValuation)} <Btn action={async () => open(j)}>Review & Decide →</Btn></p>)}
-      <h3>Allocation Mode (Phase 1 evolution)</h3><div style={{ display: 'flex', gap: 8 }}><Btn ghost action={async () => { await api('/admin/settings', { method: 'PATCH', body: JSON.stringify({ allocationMode: 'FIRST_COME' }) }); await reload(); }}>First-Come Mode</Btn><Btn ghost action={async () => { await api('/admin/settings', { method: 'PATCH', body: JSON.stringify({ allocationMode: 'RATING_PRIORITY' }) }); await reload(); }}>Rating-Priority Mode</Btn></div>
-      <h3>Inspectors</h3><table><thead><tr><th>Name</th><th>Rating</th><th>Rated</th><th>Status</th><th>Set Status</th></tr></thead><tbody>{inspectors.map((i) => <tr key={i.id}><td>{i.name}<br /><span className="muted">{i.email}</span></td><td>★ {i.rating}</td><td>{i.ratingCount}</td><td>{i.status}</td><td>{['ACTIVE', 'RETRAINING', 'SUSPENDED'].map((s) => <Btn key={s} ghost action={async () => { await api(`/admin/inspectors/${i.id}/status`, { method: 'PATCH', body: JSON.stringify({ status: s }) }); await reload(); }}>{s}</Btn>)}</td></tr>)}</tbody></table></div></>}
+    {user.role === 'ADMIN' && <AdminControlCenter jobs={jobs} overview={overview} users={users} inspectors={inspectors} ledger={ledger} liveOn={liveOn} openJob={open} reload={reload} />}
 
-    <div className="tabs"><button className={tab === 'jobs' ? 'on' : ''} onClick={() => setTab('jobs')}>All Jobs ({jobs.length})</button>{user.role !== 'LOAN_SEEKER' && <button className={tab === 'ledger' ? 'on' : ''} onClick={() => setTab('ledger')}>Payments & Ledger</button>}<button className={tab === 'notifs' ? 'on' : ''} onClick={() => setTab('notifs')}>Notifications ({notifs.filter((n) => !n.isRead).length})</button>{(user.role === 'ADMIN' || user.role === 'BANK') && <button className={tab === 'analytics' ? 'on' : ''} onClick={() => setTab('analytics')}>🤖 AI Analytics</button>}</div>
+    {user.role !== 'ADMIN' && <><div className="tabs"><button className={tab === 'jobs' ? 'on' : ''} onClick={() => setTab('jobs')}>All Jobs ({jobs.length})</button>{user.role !== 'LOAN_SEEKER' && <button className={tab === 'ledger' ? 'on' : ''} onClick={() => setTab('ledger')}>Payments & Ledger</button>}<button className={tab === 'notifs' ? 'on' : ''} onClick={() => setTab('notifs')}>Notifications ({notifs.filter((n) => !n.isRead).length})</button>{(user.role === 'ADMIN' || user.role === 'BANK') && <button className={tab === 'analytics' ? 'on' : ''} onClick={() => setTab('analytics')}>🤖 AI Analytics</button>}</div>
     {tab === 'jobs' && <div className="card"><table><thead><tr><th>Vehicle</th><th>Reg</th><th>Status</th><th>Valuation</th><th>Action</th></tr></thead><tbody>{jobs.map((j) => <tr key={j.id}><td>{j.make} {j.model} ({j.year})<br /><span className="muted">{fmtDate(j.createdAt)}</span></td><td>{j.regNumber}</td><td><StatusPill s={j.status} /></td><td>{j.valuation?.finalValuation ? inr(j.valuation.finalValuation) : j.valuation ? `${j.valuation.variancePct}% ${j.valuation.flag}` : '—'}</td><td><Btn ghost action={async () => open(j)}>Open →</Btn></td></tr>)}</tbody></table>{jobs.length === 0 && <p className="muted">No jobs yet.</p>}</div>}
     {tab === 'ledger' && user.role !== 'LOAN_SEEKER' && <div className="card"><table><thead><tr><th>Type</th><th>From → To</th><th>Amount</th><th>Status</th><th>Date</th></tr></thead><tbody>{ledger.map((l) => <tr key={l.id}><td>{l.type}</td><td>{l.fromParty} → {l.toParty}</td><td>{inr(l.amount)}</td><td>{l.status}</td><td>{fmtDate(l.createdAt)}</td></tr>)}</tbody></table>{ledger.length === 0 && <p className="muted">No transactions yet.</p>}</div>}
     {tab === 'notifs' && <div className="card">{notifs.map((n) => <p key={n.id}><b>{n.title}</b><br /><span className="muted">{n.body} · {fmtDate(n.createdAt)}</span></p>)}{notifs.length === 0 && <p className="muted">No notifications yet.</p>}</div>}
-    {tab === 'analytics' && <ErrorBoundary><AnalyticsPanel /></ErrorBoundary>}
+    {tab === 'analytics' && <ErrorBoundary><AnalyticsPanel /></ErrorBoundary>}</>}
     <div id="job-detail">{sel && <ErrorBoundary><JobDetail job={sel} user={user} reload={reload} onClose={() => setSelId(null)} /></ErrorBoundary>}</div>
   </div></div>;
 }

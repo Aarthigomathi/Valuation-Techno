@@ -39,3 +39,12 @@ Frontend build passes with AI-animated panels (Fraud Gauge, Digital Twin, AI Sca
 ## UI usability overhaul (user-reported: same dashboards, dead buttons)
 Root causes found & fixed: (1) Report/PDF were plain links without JWT → 401 on click — now authenticated blob open; (2) all roles shared one dashboard — now 4 distinct role dashboards with direct action buttons; (3) buttons had no busy/error feedback — new Btn component (spinner + inline errors); (4) MARKET_TICK forced full reload every 20s — ticks no longer reload; (5) inspection draft restore missed damages/images — fixed.
 Verified by scripted UI-flow: create→accept→start→submit(GREEN 1.74%)→report→PDF→rate(4.8)→feedback(4.67)→settle→analytics/market/ledger/notifications — all pass on the live server. 18/18 automated tests still pass.
+
+
+## Admin Control Centre upgrade (22/22 PASS)
+| # | Test | Result |
+|---|---|---|
+| 20 | Admin can list every platform user; Bank and Inspector roles receive 403 | ✅ |
+| 21 | Overview exposes job, user and ledger distributions for circular charts | ✅ |
+| 22 | User status controls work; administrator accounts and self-changes are protected | ✅ |
+Frontend build passes. The dark Admin Control Centre includes KPI progress rings, donut charts for job status, valuation flags and user roles, audit queue, user and inspector management, all jobs, payments, AI analytics and allocation settings.

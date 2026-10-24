@@ -180,3 +180,29 @@ describe('Session transport fix (preview proxy strips Authorization)', () => {
     expect(expired.status).toBe(401);
   });
 });
+
+describe('Admin Control Centre management APIs', () => {
+  it('admin can list every platform user; other roles cannot', async () => {
+    expect((await request(app).get('/api/admin/users').set(auth(T.bank))).status).toBe(403);
+    expect((await request(app).get('/api/admin/users').set(auth(T.inspector))).status).toBe(403);
+    const users = await request(app).get('/api/admin/users').set(auth(T.admin));
+    expect(users.status).toBe(200);
+    expect(new Set(users.body.map((u) => u.role)).size >= 4 ? true : false).toBe(true);
+    expect(users.body.some((u) => u.role === 'BANK')).toBe(true);
+    expect(users.body.some((u) => u.role === 'LOAN_SEEKER')).toBe(true);
+  });
+  it('overview exposes dashboard distributions for circular charts', async () => {
+    const o = await request(app).get('/api/admin/overview').set(auth(T.admin));
+    expect(o.status).toBe(200); expect(typeof o.body.jobsByStatus).toBe('object'); expect(typeof o.body.usersByRole).toBe('object'); expect(o.body.usersTotal >= 6 ? true : false).toBe(true);
+  });
+  it('admin status controls work, while admin accounts and self-changes are protected', async () => {
+    const users = await request(app).get('/api/admin/users').set(auth(T.admin));
+    const seeker = users.body.find((u) => u.role === 'LOAN_SEEKER'); const me = users.body.find((u) => u.email === 'admin@valuation.techno');
+    expect((await request(app).patch(`/api/admin/users/${seeker.id}/status`).set(auth(T.bank)).send({ status: 'SUSPENDED' })).status).toBe(403);
+    expect((await request(app).patch(`/api/admin/users/${me.id}/status`).set(auth(T.admin)).send({ status: 'SUSPENDED' })).status).toBe(403);
+    expect((await request(app).patch(`/api/admin/users/${seeker.id}/status`).set(auth(T.admin)).send({ status: 'RETRAINING' })).status).toBe(400);
+    const changed = await request(app).patch(`/api/admin/users/${seeker.id}/status`).set(auth(T.admin)).send({ status: 'SUSPENDED' });
+    expect(changed.status).toBe(200); expect(changed.body.user.status).toBe('SUSPENDED');
+    await request(app).patch(`/api/admin/users/${seeker.id}/status`).set(auth(T.admin)).send({ status: 'ACTIVE' });
+  });
+});
