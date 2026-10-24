@@ -21,7 +21,7 @@ export function Btn({ action, children, className = '', green, danger, ghost }) 
     <button type="button" disabled={busy} className={`${className} ${green ? 'green' : ''} ${danger ? 'danger' : ''} ${ghost ? 'ghost' : ''}`}
       onClick={async () => { setBusy(true); setErr(''); try { await action(); } catch (e) { setErr(e.message); } finally { setBusy(false); } }}>
       {busy ? '⏳ Working…' : children}</button>
-    {err && <span style={{ color: '#dc2626', fontSize: 12, maxWidth: 320 }}>{err}</span>}</span>;
+    {err && <span style={{ color: '#fb7185', fontSize: 12, maxWidth: 320 }}>{err}</span>}</span>;
 }
 
 function Login() {
@@ -98,7 +98,7 @@ function BankFeedbackBox({ job, reload }) {
 
 function JobDetail({ job, user, reload, onClose }) {
   if (!job) return null; const v = job.valuation;
-  return <div className="card" style={{ border: '2px solid #0b6bcb' }}><div style={{ display: 'flex', justifyContent: 'space-between' }}><h2>{job.make} {job.model} {job.variant || ''} ({job.year}) · {job.regNumber}</h2><Btn ghost action={async () => onClose()}>✕ Close</Btn></div><Stepper status={job.status} />
+  return <div className="card" style={{ border: '2px solid #38bdf8' }}><div style={{ display: 'flex', justifyContent: 'space-between' }}><h2>{job.make} {job.model} {job.variant || ''} ({job.year}) · {job.regNumber}</h2><Btn ghost action={async () => onClose()}>✕ Close</Btn></div><Stepper status={job.status} />
     <p><StatusPill s={job.status} /> <span className="muted">Loan: {job.loanRef || '—'} · Seeker: {job.seekerName} · Fee: {inr(job.valuationFee)} · Mode: {job.allocationMode} · Radius: {job.broadcastRadiusKm} km</span></p>
     {job.verification && <details open><summary><b>Vehicle Verification (VAHAN / IIB)</b></summary><table><tbody>{job.verification.checks?.map((c) => <tr key={c.name}><td>{c.name}</td><td>{c.status}</td><td>{c.detail}</td></tr>)}</tbody></table><p className="muted">Accidents: {job.verification.history?.accidentCount} · Claims: {job.verification.history?.claimCount} · Owners: {job.verification.ownership?.ownersCount} · Insurance valid: {job.verification.insurance?.valid ? 'Yes' : 'No'}</p></details>}
     {job.assignedInspector && <p>Inspector: <b>{job.assignedInspector.name}</b> ★ {job.assignedInspector.rating} ({job.assignedInspector.status})</p>}
@@ -188,7 +188,7 @@ function Dashboard() {
     {toSettle.length > 0 && <div className="card"><h3>💰 Ready to Settle ({toSettle.length})</h3>{toSettle.map((j) => <p key={j.id}>{j.regNumber} · Final {inr(j.valuation?.finalValuation)} <Btn green action={async () => { await api(`/jobs/${j.id}/settle`, { method: 'POST' }); await reload(); }}>Settle</Btn> <Btn ghost action={async () => open(j)}>Open</Btn></p>)}</div>}</>}
 
     {user.role === 'INSPECTOR' && <><div className="grid"><div className="card"><div className="muted">Available near me</div><div className="stat">{available.length}</div></div><div className="card"><div className="muted">My earnings (pay + bonus)</div><div className="stat">{inr(earnings)}</div></div><div className="card"><div className="muted">My rating</div><div className="stat">★ {user.rating}</div><div className="muted">{user.status}</div></div></div>
-    {jobs.filter((j) => j.assignedInspector?.id === user.id).length > 0 && <div className="card" style={{border:'2px solid #15803d'}}><h2>✅ My Assigned Jobs — Start or Continue Inspection</h2>
+    {jobs.filter((j) => j.assignedInspector?.id === user.id).length > 0 && <div className="card" style={{border:'2px solid #34d399'}}><h2>✅ My Assigned Jobs — Start or Continue Inspection</h2>
       {jobs.filter((j) => j.assignedInspector?.id === user.id).map((j) => <p key={j.id}><b>{j.make} {j.model}</b> · {j.regNumber} · <span className="pill">{j.status}</span> <Btn green action={async () => open(j)}>{['ASSIGNED','INSPECTION_IN_PROGRESS'].includes(j.status) ? '🔍 Inspection Start / Continue →' : 'Open →'}</Btn></p>)}
       <p className="muted">Once you accept a job, it is removed from "Jobs Near You" because the assignment is exclusive. It will appear here. Open the job, start the inspection, upload the photos, and submit your manual valuation.</p></div>}
     <div className="card"><h2>📍 Jobs Near You — First to Accept Wins (exclusive)</h2>{available.length === 0 && <p className="muted">No open jobs in your radius right now. New bank jobs appear here LIVE — keep this page open.</p>}
