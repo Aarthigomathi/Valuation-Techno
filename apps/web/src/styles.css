@@ -42,3 +42,23 @@ input,select,textarea{background:#08111f!important;color:#e7eefb!important;borde
 .kbd{background:#101d33;color:#cbd5e1;border-color:var(--line)}.toastbar{background:linear-gradient(90deg,#0d1b2e,#2563eb);border:1px solid #27405f;box-shadow:0 12px 28px rgba(2,6,23,.3)}
 .login{box-shadow:0 24px 60px rgba(2,6,23,.45)}details{color:var(--ink)}summary{color:#f4f8ff}hr{border-color:var(--line)}::selection{background:rgba(56,189,248,.35)}
 .scanbox{background:linear-gradient(180deg,#0d1b2e,#08111f);border:1px solid #1e2d49;color:#dbeafe}
+
+/* ===== Login page only — distinct aurora gradient colour (dashboards keep Admin navy) ===== */
+.login-page{max-width:none;width:100%;min-height:100vh;margin:0;padding:40px 20px 64px;display:flex;justify-content:center;align-items:flex-start;position:relative;overflow:hidden;background:radial-gradient(circle at 16% 14%,rgba(217,70,239,.38),transparent 34%),radial-gradient(circle at 86% 10%,rgba(45,212,191,.32),transparent 34%),radial-gradient(circle at 80% 90%,rgba(56,189,248,.30),transparent 38%),linear-gradient(135deg,#2e1065 0%,#6d28d9 38%,#2563eb 72%,#0f766e 100%)}
+.login-page:before,.login-page:after{content:"";position:absolute;border-radius:50%;filter:blur(70px);opacity:.55;pointer-events:none}
+.login-page:before{width:340px;height:340px;left:-90px;bottom:-110px;background:#d946ef}
+.login-page:after{width:300px;height:300px;right:-70px;top:-80px;background:#2dd4bf}
+.login-page .card.login{position:relative;z-index:1;max-width:460px;width:100%;margin:48px auto;background:linear-gradient(180deg,rgba(255,255,255,.15),rgba(255,255,255,.07));border:1px solid rgba(255,255,255,.30);border-radius:24px;padding:28px;color:#fff;box-shadow:0 30px 80px rgba(46,16,101,.48);backdrop-filter:blur(16px)}
+.login-page .card.login h1{background:linear-gradient(90deg,#ffffff,#a5f3fc,#f0abfc);-webkit-background-clip:text;background-clip:text;color:transparent;font-size:31px;line-height:1.15;margin:0 0 10px}
+.login-page .muted{color:rgba(255,255,255,.80)}.login-page label{color:#fff}.login-page a{color:#a5f3fc}
+.login-page .tabs button{background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.28);box-shadow:none}
+.login-page .tabs button.on{background:linear-gradient(135deg,#d946ef,#06b6d4);color:#fff;border-color:transparent}
+.login-page input,.login-page select,.login-page textarea{background:rgba(15,23,42,.55)!important;border:1px solid rgba(255,255,255,.32)!important;color:#fff!important}
+.login-page input::placeholder,.login-page textarea::placeholder{color:rgba(255,255,255,.55)}
+.login-page input:focus,.login-page select:focus,.login-page textarea:focus{outline:2px solid rgba(240,171,252,.55);border-color:#f0abfc!important}
+.login-page button{background:linear-gradient(135deg,#c026d3,#7c3aed 45%,#06b6d4);border:1px solid rgba(255,255,255,.25);color:#fff;box-shadow:0 12px 26px rgba(124,58,237,.35)}
+.login-page button.ghost{background:rgba(255,255,255,.10);color:#fff;border:1px solid rgba(255,255,255,.30);box-shadow:none;text-align:left}
+.login-page button:hover{filter:brightness(1.12)}
+.login-page .err{background:rgba(127,29,29,.38);color:#fecdd3;border-color:rgba(254,205,211,.45)}
+.login-page .ok{background:rgba(6,78,59,.38);color:#a7f3d0;border-color:rgba(167,243,208,.45)}
+@media(max-width:560px){.login-page{padding:22px 12px 40px}.login-page .card.login{margin:22px auto;padding:22px}}
