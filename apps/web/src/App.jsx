@@ -6,10 +6,10 @@ import AdminControlCenter from './components/AdminDashboard.jsx';
 
 const PHASES = ['BROADCAST', 'ASSIGNED', 'INSPECTION_IN_PROGRESS', 'INSPECTION_SUBMITTED', 'AUDIT_REQUIRED', 'REPORT_DELIVERED', 'SETTLED'];
 const ROLE_META = {
-  BANK: { icon: '🏦', title: 'Bank Officer Dashboard', color: '#0b6bcb', home: 'Create valuation jobs, track reports & settle payments' },
-  INSPECTOR: { icon: '🔍', title: 'Inspector Dashboard', color: '#15803d', home: 'Jobs near you, inspections, instant-pay earnings & your rating' },
-  LOAN_SEEKER: { icon: '🚗', title: 'My Vehicle Valuation', color: '#b45309', home: 'Track your valuation, download your summary report & rate your inspector' },
-  ADMIN: { icon: '🛡️', title: 'Platform Control Tower', color: '#7c3aed', home: 'RED-flag audit queue, inspector governance, money & AI analytics' },
+  BANK: { icon: '🏦', title: 'Bank Officer Dashboard', color: '#0a1424', home: 'Create valuation jobs, track reports & settle payments' },
+  INSPECTOR: { icon: '🔍', title: 'Inspector Dashboard', color: '#0a1424', home: 'Jobs near you, inspections, instant-pay earnings & your rating' },
+  LOAN_SEEKER: { icon: '🚗', title: 'My Vehicle Valuation', color: '#0a1424', home: 'Track your valuation, download your summary report & rate your inspector' },
+  ADMIN: { icon: '🛡️', title: 'Platform Control Tower', color: '#0a1424', home: 'RED-flag audit queue, inspector governance, money & AI analytics' },
 };
 function StatusPill({ s }) { return <span className="pill">{s}</span>; }
 function Stepper({ status }) { const idx = PHASES.indexOf(status); return <div className="stepper">{PHASES.map((p, i) => <span key={p} className={`step ${i <= idx ? 'on' : ''}`}>{p.replaceAll('_', ' ')}</span>)}</div>; }
@@ -195,7 +195,7 @@ function Dashboard() {
       {available.map((j) => { const me = j.eligibleInspectors?.find((x) => x.id === user.id); return <p key={j.id}><b>{j.make} {j.model} ({j.year})</b> · {j.regNumber} · {me ? `${me.distanceKm} km away` : 'check eligibility'} <Btn action={async () => { await api(`/jobs/${j.id}/accept`, { method: 'POST' }); await reload(); setSelId(j.id); setBanner(`✓ You are assigned to ${j.regNumber}`); }}>✓ Accept Job</Btn> <Btn ghost action={async () => open(j)}>Details</Btn></p>; })}</div></>}
 
     {user.role === 'LOAN_SEEKER' && <div className="card"><h2>🚗 My Valuation Journey</h2>{jobs.length === 0 && <p className="muted">No valuation linked to your email/phone yet. Ask your bank to create a job with your email (<b>{user.email}</b>) — it will appear here LIVE.</p>}
-      {jobs.map((j) => <div key={j.id} style={{ borderBottom: '1px solid #dbe5ef', padding: '10px 0' }}><b>{j.make} {j.model} ({j.year})</b> · {j.regNumber} <StatusPill s={j.status} />{j.valuation?.finalValuation ? <span> · Final Valuation <b>{inr(j.valuation.finalValuation)}</b></span> : <span className="muted"> · Valuation in progress…</span>}
+      {jobs.map((j) => <div key={j.id} style={{ borderBottom: '1px solid #1e2d49', padding: '10px 0' }}><b>{j.make} {j.model} ({j.year})</b> · {j.regNumber} <StatusPill s={j.status} />{j.valuation?.finalValuation ? <span> · Final Valuation <b>{inr(j.valuation.finalValuation)}</b></span> : <span className="muted"> · Valuation in progress…</span>}
       <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>{j.valuation?.finalValuation && <Btn ghost action={() => openAuthed(`/api/jobs/${j.id}/report`)}>📄 My Summary Report</Btn>}<Btn ghost action={async () => open(j)}>{j.status === 'REPORT_DELIVERED' && !j.rating ? '⭐ Rate Inspector' : 'Track →'}</Btn></div></div>)}</div>}
 
     {user.role === 'ADMIN' && <AdminControlCenter jobs={jobs} overview={overview} users={users} inspectors={inspectors} ledger={ledger} liveOn={liveOn} openJob={open} reload={reload} />}

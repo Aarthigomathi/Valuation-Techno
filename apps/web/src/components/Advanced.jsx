@@ -23,18 +23,18 @@ export function FraudGauge({ score = 0, risk = 'LOW' }) {
   const pct = Math.min(100, score); const circ = 2 * Math.PI * 52; const color = risk === 'HIGH' ? '#dc2626' : risk === 'MEDIUM' ? '#f59e0b' : '#16a34a';
   const animated = useCountUp(pct);
   return <div style={{ textAlign: 'center', minWidth: 150 }}><svg width="140" height="140" viewBox="0 0 120 120">
-    <circle cx="60" cy="60" r="52" fill="none" stroke="#e2e8f0" strokeWidth="10" />
+    <circle cx="60" cy="60" r="52" fill="none" stroke="#1e2d49" strokeWidth="10" />
     <circle cx="60" cy="60" r="52" fill="none" stroke={color} strokeWidth="10" strokeLinecap="round" strokeDasharray={circ} strokeDashoffset={circ - (animated / 100) * circ} transform="rotate(-90 60 60)" style={{ transition: 'stroke-dashoffset .3s' }} />
-    <text x="60" y="58" textAnchor="middle" fontSize="24" fontWeight="800" fill={color}>{Math.round(animated)}</text><text x="60" y="76" textAnchor="middle" fontSize="10" fill="#64748b">fraud / 100 · {risk}</text></svg>
+    <text x="60" y="58" textAnchor="middle" fontSize="24" fontWeight="800" fill={color}>{Math.round(animated)}</text><text x="60" y="76" textAnchor="middle" fontSize="10" fill="#8fa3bf">fraud / 100 · {risk}</text></svg>
     <div className="muted">killfake.ai deepfake & tamper score</div></div>;
 }
 
 const HOTSPOTS = { FRONT: [100, 18], REAR: [100, 182], LEFT: [28, 100], RIGHT: [172, 100], ENGINE: [100, 48], TIRE: [40, 165], ODOMETER: [100, 82], DAMAGE: [140, 120], TOP: [100, 100], INTERIOR: [100, 105] };
 export function CarTwin({ detections = [] }) {
   return <div style={{ textAlign: 'center' }}><svg width="200" height="200" viewBox="0 0 200 200" role="img" aria-label="Vehicle digital twin with damage hotspots">
-    <rect x="55" y="10" width="90" height="180" rx="38" fill="#dbeafe" stroke="#0b6bcb" strokeWidth="2" />
-    <rect x="68" y="55" width="64" height="55" rx="12" fill="#bfdbfe" /><rect x="72" y="125" width="56" height="38" rx="10" fill="#bfdbfe" />
-    <circle cx="52" cy="42" r="10" fill="#1e293b" /><circle cx="148" cy="42" r="10" fill="#1e293b" /><circle cx="52" cy="158" r="10" fill="#1e293b" /><circle cx="148" cy="158" r="10" fill="#1e293b" />
+    <rect x="55" y="10" width="90" height="180" rx="38" fill="#12263f" stroke="#38bdf8" strokeWidth="2" />
+    <rect x="68" y="55" width="64" height="55" rx="12" fill="#1d4ed8" /><rect x="72" y="125" width="56" height="38" rx="10" fill="#2563eb" />
+    <circle cx="52" cy="42" r="10" fill="#020617" stroke="#38bdf8" /><circle cx="148" cy="42" r="10" fill="#1e293b" /><circle cx="52" cy="158" r="10" fill="#020617" stroke="#38bdf8" /><circle cx="148" cy="158" r="10" fill="#1e293b" />
     {detections.map((d, i) => { const [x, y] = HOTSPOTS[d.category] || HOTSPOTS.DAMAGE; return <g key={i}><circle className="hotspot" cx={x} cy={y} r="8" fill="#dc2626" opacity="0.85"><title>{d.type} · {d.part} · {d.severity} · {inr(d.estimatedCost)}</title></circle><circle className="hotspot-ring" cx={x} cy={y} r="8" fill="none" stroke="#dc2626" /></g>; })}
   </svg><div className="muted">🚗 Vehicle Digital Twin — {detections.length} AI damage hotspot(s), hover to inspect</div></div>;
 }
@@ -55,8 +55,8 @@ export function MarketChart({ make, model }) {
   const all = [...data.trend, ...data.forecast]; const max = Math.max(...all.map((x) => x.value)) * 1.05; const min = Math.min(...all.map((x) => x.value)) * 0.95;
   const pt = (arr, off = 0) => arr.map((d, i) => `${((i + off) / (all.length - 1)) * 560 + 20},${130 - ((d.value - min) / (max - min)) * 110}`).join(' ');
   return <div><h3>📈 DeepSearch Live Market — {data.make} {data.model}</h3>
-    <svg width="100%" viewBox="0 0 600 150"><polyline className="chartline" fill="none" stroke="#0b6bcb" strokeWidth="2.5" points={pt(data.trend)} /><polyline fill="none" stroke="#f59e0b" strokeWidth="2.5" strokeDasharray="6 4" points={pt(data.forecast, data.trend.length - 1)} />
-      {all.map((d, i) => <text key={i} x={(i / (all.length - 1)) * 560 + 14} y="145" fontSize="8" fill="#64748b">{d.month}</text>)}</svg>
+    <svg width="100%" viewBox="0 0 600 150"><polyline className="chartline" fill="none" stroke="#38bdf8" strokeWidth="2.5" points={pt(data.trend)} /><polyline fill="none" stroke="#f59e0b" strokeWidth="2.5" strokeDasharray="6 4" points={pt(data.forecast, data.trend.length - 1)} />
+      {all.map((d, i) => <text key={i} x={(i / (all.length - 1)) * 560 + 14} y="145" fontSize="8" fill="#8fa3bf">{d.month}</text>)}</svg>
     <p>Current market {inr(data.current)} · AI forecast {data.forecastChangePct >= 0 ? '▲' : '▼'} {Math.abs(data.forecastChangePct)}% / 3 mo · Comparables: {data.comparables.map((c) => `${c.city} ${inr(c.price)}`).join(' · ')}</p></div>;
 }
 
@@ -101,32 +101,32 @@ export function LiveMap({ job }) {
       {job.assignedInspector && <span className="pill">Assigned: {job.assignedInspector.name}</span>}
     </div>
 
-    <svg width="100%" viewBox="0 0 720 360" role="img" aria-label="Live broadcast map showing the vehicle and eligible inspectors" style={{ background: 'linear-gradient(180deg,#eff6ff,#f8fbff)', border: '1px solid #dbeafe', borderRadius: 14, display: 'block' }}>
-      <circle cx={cx} cy={cy} r={broadcastRadius} fill="rgba(219,234,254,.45)" stroke="#0b6bcb" strokeWidth="2" strokeDasharray="7 6" className="pulse-ring" />
-      <circle cx={cx} cy={cy} r="58" fill="none" stroke="#bfdbfe" strokeWidth="1.5" />
+    <svg width="100%" viewBox="0 0 720 360" role="img" aria-label="Live broadcast map showing the vehicle and eligible inspectors" style={{ background: 'linear-gradient(180deg,#0a1424,#0d1b2e)', border: '1px solid #1e2d49', borderRadius: 14, display: 'block' }}>
+      <circle cx={cx} cy={cy} r={broadcastRadius} fill="rgba(56,189,248,.10)" stroke="#38bdf8" strokeWidth="2" strokeDasharray="7 6" className="pulse-ring" />
+      <circle cx={cx} cy={cy} r="58" fill="none" stroke="#1d4ed8" strokeWidth="1.5" />
 
       {points.map(({ inspector, label, labelWidth, markerX, markerY, labelX, labelY }) => (
         <g key={inspector.id}>
-          <line x1={markerX} y1={markerY} x2={labelX} y2={labelY} stroke="#93c5fd" strokeWidth="1.5" />
-          <circle cx={markerX} cy={markerY} r="10" fill="#fff" stroke="#16a34a" strokeWidth="2" />
+          <line x1={markerX} y1={markerY} x2={labelX} y2={labelY} stroke="#2563eb" strokeWidth="1.5" />
+          <circle cx={markerX} cy={markerY} r="10" fill="#0d1626" stroke="#34d399" strokeWidth="2" />
           <circle className="hotspot" cx={markerX} cy={markerY} r="5.5" fill="#16a34a" />
-          <rect x={labelX - labelWidth / 2} y={labelY - 16} width={labelWidth} height="32" rx="16" fill="#fff" stroke="#93c5fd" />
-          <text x={labelX} y={labelY + 4} textAnchor="middle" fontSize="12" fontWeight="700" fill="#12365d">{label}</text>
+          <rect x={labelX - labelWidth / 2} y={labelY - 16} width={labelWidth} height="32" rx="16" fill="#101d33" stroke="#27405f" />
+          <text x={labelX} y={labelY + 4} textAnchor="middle" fontSize="12" fontWeight="700" fill="#e7eefb">{label}</text>
         </g>
       ))}
 
       <text x={cx} y={cy - 18} textAnchor="middle" fontSize="22">🚗</text>
-      <circle cx={cx} cy={cy + 3} r="7" fill="#0b2a4a" stroke="#fff" strokeWidth="2" />
-      <rect x={cx - vehicleLabelWidth / 2} y={cy + 20} width={vehicleLabelWidth} height="30" rx="15" fill="#0b2a4a" />
+      <circle cx={cx} cy={cy + 3} r="7" fill="#38bdf8" stroke="#0a1424" strokeWidth="2" />
+      <rect x={cx - vehicleLabelWidth / 2} y={cy + 20} width={vehicleLabelWidth} height="30" rx="15" fill="#2563eb" />
       <text x={cx} y={cy + 39} textAnchor="middle" fontSize="12" fontWeight="800" fill="#fff">{vehicleLabel}</text>
     </svg>
 
     {els.length > 0 && <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
-      {els.map((inspector) => <span key={inspector.id} className="pill" style={{ background: '#dcfce7', color: '#14532d' }}>
+      {els.map((inspector) => <span key={inspector.id} className="pill" style={{ background: 'rgba(52,211,153,.13)', color: '#6ee7b7', border: '1px solid rgba(52,211,153,.3)' }}>
         {inspector.name} · ★{inspector.rating} · {inspector.distanceKm} km away
       </span>)}
     </div>}
-    {job.assignedInspector && <p style={{ color: '#15803d', fontWeight: 700, marginBottom: 0 }}>Assigned inspector: {job.assignedInspector.name}</p>}
+    {job.assignedInspector && <p style={{ color: '#34d399', fontWeight: 700, marginBottom: 0 }}>Assigned inspector: {job.assignedInspector.name}</p>}
   </div>;
 }
 
@@ -138,7 +138,7 @@ export function AnalyticsPanel() {
   if (loadErr) return <div className="card"><h3>⚠️ AI Analytics could not be loaded</h3><p className="muted">{loadErr}</p></div>;
   if (!a) return <p className="muted">⏳ Loading AI analytics…</p>;
   const fraud = a.fraud || { low: 0, medium: 0, high: 0, avgScore: 0 }; const leaderboard = a.leaderboard || [];
-  const bar = (label, n, max, color) => <div key={label}><label>{label}: {n}</label><div style={{ background: '#e2e8f0', borderRadius: 8, height: 12 }}><div style={{ width: `${max ? (n / max) * 100 : 0}%`, background: color, height: 12, borderRadius: 8, transition: 'width 1s' }} /></div></div>;
+  const bar = (label, n, max, color) => <div key={label}><label>{label}: {n}</label><div style={{ background: '#1e2d49', borderRadius: 8, height: 12 }}><div style={{ width: `${max ? (n / max) * 100 : 0}%`, background: color, height: 12, borderRadius: 8, transition: 'width 1s' }} /></div></div>;
   const fmax = Math.max(1, fraud.low, fraud.medium, fraud.high);
   return <div><div className="grid"><div className="card"><div className="muted">Total jobs</div><div className="stat">{Math.round(jobs)}</div></div><div className="card"><div className="muted">Settled value</div><div className="stat">{inr(settled)}</div></div><div className="card"><div className="muted">Green-flag rate</div><div className="stat">{a.greenPct}%</div></div><div className="card"><div className="muted">Avg variance</div><div className="stat">{a.avgVariance}%</div></div><div className="card"><div className="muted">Users online (live)</div><div className="stat">{a.onlineUsers}</div></div></div>
     <div className="card"><h3>🛡️ Fraud Risk Distribution (avg score {fraud.avgScore}/100)</h3>{bar('LOW', fraud.low, fmax, '#16a34a')}{bar('MEDIUM', fraud.medium, fmax, '#f59e0b')}{bar('HIGH', fraud.high, fmax, '#dc2626')}<p className="ok">🤖 AI Insight: {a.insight} Next-month volume forecast: ~{a.volumeForecastNextMonth} jobs.</p></div>
