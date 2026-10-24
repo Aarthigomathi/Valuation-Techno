@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS ratings(id TEXT PRIMARY KEY, jobId TEXT UNIQUE NOT NU
 CREATE TABLE IF NOT EXISTS ledger(id TEXT PRIMARY KEY, jobId TEXT, type TEXT NOT NULL, fromParty TEXT, toParty TEXT, userId TEXT, amount REAL NOT NULL, status TEXT NOT NULL DEFAULT 'PAID', ref TEXT, createdAt TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS notifications(id TEXT PRIMARY KEY, userId TEXT, title TEXT NOT NULL, body TEXT, channel TEXT NOT NULL DEFAULT 'PUSH', isRead INTEGER NOT NULL DEFAULT 0, createdAt TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS audit_log(id TEXT PRIMARY KEY, jobId TEXT, actorId TEXT, action TEXT NOT NULL, detail TEXT, createdAt TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS bank_feedback(id TEXT PRIMARY KEY, jobId TEXT UNIQUE NOT NULL, bankId TEXT NOT NULL, scoresJson TEXT NOT NULL, avgScore REAL NOT NULL, comment TEXT, createdAt TEXT NOT NULL);
 `);
 const getSetting = (k, d) => { const r = db.prepare('SELECT value FROM settings WHERE key=?').get(k); return r ? r.value : d; };
 export const settings = {

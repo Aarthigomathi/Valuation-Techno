@@ -50,7 +50,10 @@ function JobDetail({ job, user, reload }) {
 
 function InspectionForm({ job, reload }) {
   const cats = ['FRONT', 'REAR', 'ENGINE', 'TIRE', 'ODOMETER'];
-  const [f, setF] = useState({ odometerReading: job.expectedOdometer || 45000, manualValuation: '', manualRepairEstimate: 5000, notes: 'Vehicle in good condition' });
+  const draftKey = `vt_draft_${job.id}`; // Mobile App Layer: offline draft cache (survives reload / network loss)
+  const draft = (() => { try { return JSON.parse(localStorage.getItem(draftKey)); } catch { return null; } })();
+  const [f, setF] = useState(draft?.f || { odometerReading: job.expectedOdometer || 45000, manualValuation: '', manualRepairEstimate: 5000, notes: 'Vehicle in good condition' });
+  useEffect(() => { try { localStorage.setItem(draftKey, JSON.stringify({ f, damages, images })); } catch { /* storage full/blocked — non-fatal */ } });
   const [damages, setDamages] = useState([{ part: 'Front bumper/panel', type: 'scratch', severity: 'Small', description: 'Minor scratch' }]);
   const [images, setImages] = useState(cats.map((category, i) => ({ category, lat: job.vehicleLat, lng: job.vehicleLng, capturedAt: new Date().toISOString(), imageHash: `img-${job.id}-${i}-${Math.random().toString(36).slice(2, 8)}` })));
   const [err, setErr] = useState('');
@@ -64,8 +67,15 @@ function InspectionForm({ job, reload }) {
     {images.map((im, i) => <div key={i} className="row"><div><span className="pill">{im.category}</span> <span className="muted">{im.lat}, {im.lng} · {fmtDate(im.capturedAt)}</span></div><div><input type="file" accept="image/*,.pdf" onChange={(e) => upload(e, i)} /></div></div>)}
     <label>Observed damages</label>{damages.map((d, i) => <div key={i} className="row"><input value={d.part} onChange={(e) => setDamages(damages.map((x, j) => j === i ? { ...x, part: e.target.value } : x))} /><select value={d.severity} onChange={(e) => setDamages(damages.map((x, j) => j === i ? { ...x, severity: e.target.value } : x))}><option>Small</option><option>Medium</option><option>Large</option></select></div>)}
     <button className="ghost" onClick={() => setDamages([...damages, { part: '', type: 'dent', severity: 'Medium', description: '' }])}>+ Add damage</button>{' '}
-    <button onClick={async () => { try { await api(`/jobs/${job.id}/inspection`, { method: 'POST', body: JSON.stringify({ ...f, manualValuation: Number(f.manualValuation), condition: { engine: 4, body: 4, tires: 3, interior: 4 }, damages, images, documents: [{ type: 'RC' }, { type: 'INSURANCE' }, { type: 'POLLUTION' }] }) }); reload(); } catch (e) { setErr(e.message); } }}>Submit Inspection · Get Instant Pay + Run AI</button>
+    <button onClick={async () => { try { await api(`/jobs/${job.id}/inspection`, { method: 'POST', body: JSON.stringify({ ...f, manualValuation: Number(f.manualValuation), condition: { engine: 4, body: 4, tires: 3, interior: 4 }, damages, images, documents: [{ type: 'RC' }, { type: 'INSURANCE' }, { type: 'POLLUTION' }] }) }); localStorage.removeItem(draftKey); reload(); } catch (e) { setErr(e.message); } }}>Submit Inspection · Get Instant Pay + Run AI</button>
     <p className="muted">On submit: ₹1,200 instant payment posts, AI damage/fraud runs, dual valuation & Red/Green flag are computed automatically.</p></div>;
+}
+function BankFeedbackBox({ job, reload }) {
+  const [r, setR] = useState({ reportQuality: 5, timeliness: 5, accuracy: 5, comment: '' }); const [err, setErr] = useState('');
+  return <div style={{ marginTop: 14 }}><h3>Bank Feedback on Report</h3>{err && <div className="err">{err}</div>}
+    {['reportQuality', 'timeliness', 'accuracy'].map((k) => <div key={k}><label>{k} (1–5): {r[k]}</label><input type="range" min="1" max="5" value={r[k]} onChange={(e) => setR({ ...r, [k]: Number(e.target.value) })} /></div>)}
+    <label>Comment</label><input value={r.comment} onChange={(e) => setR({ ...r, comment: e.target.value })} />
+    <button onClick={async () => { try { await api(`/jobs/${job.id}/bank-feedback`, { method: 'POST', body: JSON.stringify(r) }); reload(); } catch (e) { setErr(e.message); } }}>Submit Bank Feedback</button></div>;
 }
 function AuditBox({ job, reload }) {
   const [finalValuation, setFinal] = useState(''); const [note, setNote] = useState(''); const [err, setErr] = useState('');

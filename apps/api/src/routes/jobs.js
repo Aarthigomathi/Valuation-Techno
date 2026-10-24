@@ -23,6 +23,7 @@ function detail(job) {
     assignedInspector: job.assignedInspectorId ? db.prepare('SELECT id,name,email,phone,rating,ratingCount,status FROM users WHERE id=?').get(job.assignedInspectorId) : null,
     eligibleInspectors: eligibleInspectors(job).map((u) => ({ id: u.id, name: u.name, rating: u.rating, distanceKm: u.distanceKm, status: u.status })),
     rating: db.prepare('SELECT * FROM ratings WHERE jobId=?').get(job.id) || null,
+    bankFeedback: (() => { const f = db.prepare('SELECT * FROM bank_feedback WHERE jobId=?').get(job.id); return f ? { ...f, scores: JSON.parse(f.scoresJson) } : null; })(),
     ledger: db.prepare('SELECT * FROM ledger WHERE jobId=? ORDER BY createdAt').all(job.id) };
 }
 export function runPipeline(jobRow, actorId) {
@@ -172,6 +173,20 @@ r.post('/:id/rate', requireRole('LOAN_SEEKER', 'BANK'), wrap(async (req, res) =>
   audit(job.id, req.user.id, 'INSPECTOR_RATED', `seeker ${seekerScore} platform ${platformScore} composite ${composite} status ${status}`);
   notify(ins.id, 'New rating received', `Composite ${composite}/5 · Overall ${avg}/5 (${status})`);
   res.status(201).json({ seekerScore, platformScore, composite, inspectorRating: avg, inspectorStatus: status });
+}));
+
+// Phase 5 — Bank feedback (report quality signal; composite formula stays seeker+platform per case study)
+r.post('/:id/bank-feedback', requireRole('BANK'), wrap(async (req, res) => {
+  const b = z.object({ reportQuality: z.number().min(1).max(5), timeliness: z.number().min(1).max(5), accuracy: z.number().min(1).max(5), comment: z.string().optional() }).parse(req.body);
+  const job = getJob(req.params.id); if (!job) return res.status(404).json({ error: 'Job not found' });
+  if (job.bankId !== req.user.id) return res.status(403).json({ error: 'Only the owning bank can give feedback on this job' });
+  if (!['REPORT_DELIVERED', 'SETTLED'].includes(job.status)) return res.status(409).json({ error: 'Feedback opens after report delivery' });
+  if (db.prepare('SELECT id FROM bank_feedback WHERE jobId=?').get(job.id)) return res.status(409).json({ error: 'Bank feedback already submitted' });
+  const avgScore = round2((b.reportQuality + b.timeliness + b.accuracy) / 3);
+  db.prepare('INSERT INTO bank_feedback VALUES(?,?,?,?,?,?,?)').run(uid(), job.id, req.user.id, JSON.stringify(b), avgScore, b.comment || null, now());
+  if (avgScore <= 2) db.prepare("SELECT id FROM users WHERE role='ADMIN'").all().forEach((a) => notify(a.id, `Low bank feedback on ${job.regNumber}`, `Bank scored this report ${avgScore}/5 — review recommended`));
+  audit(job.id, req.user.id, 'BANK_FEEDBACK', `avg ${avgScore}/5`);
+  res.status(201).json({ avgScore });
 }));
 
 // Phase 6 — Settlement (idempotent; only after report delivery)

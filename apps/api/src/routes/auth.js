@@ -6,6 +6,11 @@ import { uid, now } from '../utils.js';
 import { sign, requireAuth, wrap } from '../middleware/auth.js';
 const r = Router();
 const creds = z.object({ email: z.string().email(), password: z.string().min(6) });
+
+const loginAttempts = new Map(); // brute-force guard: 10 failures / 15 min per email+IP
+function rateLimited(key) { const nowMs = Date.now(); const hits = (loginAttempts.get(key) || []).filter((t) => nowMs - t < 15 * 60000); loginAttempts.set(key, hits); return hits.length >= 10; }
+function recordFailure(key) { const hits = loginAttempts.get(key) || []; hits.push(Date.now()); loginAttempts.set(key, hits); }
+
 r.post('/register', wrap(async (req, res) => {
   const b = z.object({ name: z.string().min(2), email: z.string().email(), password: z.string().min(6), phone: z.string().optional(), role: z.enum(['BANK', 'INSPECTOR', 'LOAN_SEEKER']), bankName: z.string().optional(), lat: z.number().optional(), lng: z.number().optional() }).parse(req.body);
   if (db.prepare('SELECT id FROM users WHERE email=?').get(b.email)) return res.status(409).json({ error: 'Email already registered' });
@@ -15,9 +20,11 @@ r.post('/register', wrap(async (req, res) => {
   audit(null, id, 'USER_REGISTERED', b.role); res.status(201).json({ token: sign(user), user: publicUser(user) });
 }));
 r.post('/login', wrap(async (req, res) => {
-  const b = creds.parse(req.body);
+  const b = creds.parse(req.body); const rlKey = `${b.email.toLowerCase()}|${req.ip}`;
+  if (rateLimited(rlKey)) return res.status(429).json({ error: 'Too many failed login attempts. Try again in 15 minutes.' });
   const user = db.prepare('SELECT * FROM users WHERE email=?').get(b.email);
-  if (!user || !bcrypt.compareSync(b.password, user.passwordHash)) return res.status(401).json({ error: 'Invalid email or password' });
+  if (!user || !bcrypt.compareSync(b.password, user.passwordHash)) { recordFailure(rlKey); return res.status(401).json({ error: 'Invalid email or password' }); }
+  loginAttempts.delete(rlKey);
   if (user.status === 'SUSPENDED') return res.status(403).json({ error: 'Account suspended. Contact platform support.' });
   res.json({ token: sign(user), user: publicUser(user) });
 }));
@@ -25,8 +32,9 @@ r.post('/otp/request', wrap(async (req, res) => {
   const { phone } = z.object({ phone: z.string().min(10) }).parse(req.body);
   const code = String(100000 + Math.floor(Math.random() * 900000));
   db.prepare('INSERT INTO otp_codes VALUES(?,?,?) ON CONFLICT(phone) DO UPDATE SET code=excluded.code, expiresAt=excluded.expiresAt').run(phone, code, new Date(Date.now() + 5 * 60000).toISOString());
-  // Demo mode: OTP returned so the flow is testable without Twilio. Never do this with real SMS in production.
-  res.json({ message: 'OTP sent (demo mode)', demoOtp: code, expiresInSeconds: 300 });
+  // Demo mode (non-production only): OTP returned so the flow is testable without Twilio/SMS.
+  const isProd = process.env.NODE_ENV === 'production';
+  res.json(isProd ? { message: 'OTP sent', expiresInSeconds: 300 } : { message: 'OTP sent (demo mode)', demoOtp: code, expiresInSeconds: 300 });
 }));
 r.post('/otp/verify', wrap(async (req, res) => {
   const { phone, code } = z.object({ phone: z.string(), code: z.string() }).parse(req.body);

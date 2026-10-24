@@ -98,3 +98,49 @@ describe('Phase 3/4: fraud + RED path with audit', () => {
     await request(app).patch('/api/admin/settings').set(auth(T.admin)).send({ allocationMode: 'FIRST_COME' });
   });
 });
+
+describe('Step 9 hardening: bank feedback, re-inspection, PDF, upload, suspension', () => {
+  it('bank feedback stores once, rejects duplicates and other banks flows', async () => {
+    const job = await createJob('TN38LM2468');
+    const images = imgs('11.0168' * 1, 76.9558, 'bf');
+    const ai = predictAi(job, images);
+    await request(app).post(`/api/jobs/${job.id}/accept`).set(auth(T.inspector));
+    await request(app).post(`/api/jobs/${job.id}/inspection`).set(auth(T.inspector)).send({ odometerReading: 45200, damages: [], manualValuation: ai, images, documents: [{ type: 'RC' }, { type: 'INSURANCE' }, { type: 'POLLUTION' }] });
+    expect((await request(app).post(`/api/jobs/${job.id}/bank-feedback`).set(auth(T.seeker)).send({ reportQuality: 5, timeliness: 5, accuracy: 5 })).status).toBe(403);
+    const fb = await request(app).post(`/api/jobs/${job.id}/bank-feedback`).set(auth(T.bank)).send({ reportQuality: 5, timeliness: 4, accuracy: 5, comment: 'Clear report' });
+    expect(fb.status).toBe(201); expect(fb.body.avgScore).toBe(4.67);
+    expect((await request(app).post(`/api/jobs/${job.id}/bank-feedback`).set(auth(T.bank)).send({ reportQuality: 5, timeliness: 5, accuracy: 5 })).status).toBe(409);
+    const detail = await request(app).get(`/api/jobs/${job.id}`).set(auth(T.bank));
+    expect(detail.body.bankFeedback.avgScore).toBe(4.67);
+  });
+  it('re-inspection cycle: RED -> re-inspection -> fresh inspection completes', async () => {
+    const job = await createJob('TN38NP1357');
+    await request(app).post(`/api/jobs/${job.id}/accept`).set(auth(T.inspector2));
+    const sub = await request(app).post(`/api/jobs/${job.id}/inspection`).set(auth(T.inspector2)).send({ odometerReading: 45200, damages: [], manualValuation: 100000, images: imgs(11.0168, 76.9558, 're'), documents: [{ type: 'RC' }] });
+    expect(sub.body.status).toBe('AUDIT_REQUIRED');
+    const re = await request(app).post(`/api/jobs/${job.id}/audit`).set(auth(T.admin)).send({ action: 'RE_INSPECTION', note: 'Photos unclear' });
+    expect(re.status).toBe(200); expect(re.body.status).toBe('BROADCAST'); expect(re.body.assignedInspector).toBe(null);
+    await request(app).post(`/api/jobs/${job.id}/accept`).set(auth(T.inspector2));
+    const images = imgs(11.0168, 76.9558, 're2'); const ai = predictAi(re.body, images);
+    const sub2 = await request(app).post(`/api/jobs/${job.id}/inspection`).set(auth(T.inspector2)).send({ odometerReading: 45200, damages: [], manualValuation: ai, images, documents: [{ type: 'RC' }, { type: 'INSURANCE' }, { type: 'POLLUTION' }] });
+    expect(sub2.status).toBe(201); expect(sub2.body.status).toBe('REPORT_DELIVERED');
+    // Two instant pays (one per inspection cycle), each exactly once per cycle
+    expect(sub2.body.ledger.filter((l) => l.type === 'INSPECTOR_INSTANT_PAY' && l.amount === 1200).length).toBe(2);
+  });
+  it('PDF report downloads and file upload returns a fraud-check hash', async () => {
+    const jobs = await request(app).get('/api/jobs').set(auth(T.bank));
+    const done = jobs.body.find((j) => j.valuation?.finalValuation);
+    const pdf = await request(app).get(`/api/jobs/${done.id}/report.pdf`).set(auth(T.bank));
+    expect(pdf.status).toBe(200); expect(pdf.headers['content-type']).toContain('application/pdf');
+    const up = await request(app).post('/api/upload').set(auth(T.inspector)).attach('file', Buffer.from('fake-image-bytes'), 'photo.jpg').field('category', 'FRONT');
+    expect(up.status).toBe(201); expect(up.body.imageHash.length).toBe(64);
+  });
+  it('suspended inspector cannot login or accept; admin can reactivate', async () => {
+    const list = await request(app).get('/api/admin/inspectors').set(auth(T.admin));
+    const far = list.body.find((u) => u.email === 'inspector3@valuation.techno');
+    await request(app).patch(`/api/admin/inspectors/${far.id}/status`).set(auth(T.admin)).send({ status: 'SUSPENDED' });
+    expect((await request(app).post('/api/auth/login').send({ email: 'inspector3@valuation.techno', password: 'Inspector@123' })).status).toBe(403);
+    await request(app).patch(`/api/admin/inspectors/${far.id}/status`).set(auth(T.admin)).send({ status: 'ACTIVE' });
+    expect((await request(app).post('/api/auth/login').send({ email: 'inspector3@valuation.techno', password: 'Inspector@123' })).status).toBe(200);
+  });
+});

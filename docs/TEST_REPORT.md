@@ -18,3 +18,12 @@
 
 Bugs found & fixed during development: ledger INSERT column count (10 vs 9), valuations INSERT column count (12 vs 11), pipeline-failure rollback (inspection/ledger never stranded), Vitest↔`node:sqlite` incompatibility (moved to Node test runner).
 Known limits (by design, documented): AI/vendors are deterministic simulators behind provider interfaces; OTP is demo-mode; SQLite suits demo/single-node — Postgres swap documented in TECH_STACK_DECISION.md.
+
+## Step 9 — Hardening (added later, 15/15 PASS)
+| # | Test | Result |
+|---|---|---|
+| 12 | Bank feedback: stores once (avg 4.67), duplicate 409, seeker 403, visible in job detail | ✅ |
+| 13 | Re-inspection cycle: RED → admin re-inspection → BROADCAST → fresh GREEN inspection; instant pay once per cycle (2 total) | ✅ |
+| 14 | PDF report is a real PDF download; multipart upload returns 64-char SHA-256 for fraud checks | ✅ |
+| 15 | Suspended inspector blocked at login (403); admin reactivation restores access | ✅ |
+Plus: login brute-force rate limiting (10/15 min), prod OTP secrecy, security headers, annotated damage report, offline inspection drafts (localStorage). Bug fixed this step: auth.js file corruption from a partial edit — fully rewritten & syntax-checked.

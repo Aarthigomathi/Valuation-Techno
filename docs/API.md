@@ -18,3 +18,5 @@
 | POST /upload (multipart `file`) | INSPECTOR/BANK | Stores file, returns SHA-256 hash + geo/time metadata |
 
 Demo data resets by deleting `apps/api/data/valuation.db`. Production: set `JWT_SECRET`, `PORT`, `DB_PATH` env vars.
+| POST /jobs/:id/bank-feedback | BANK (owner) | Report quality/timeliness/accuracy feedback (once; avg ≤2 alerts admins) |
+Login is rate-limited (10 failures/15 min → 429). In production (`NODE_ENV=production`) OTP codes are never returned in API responses.
