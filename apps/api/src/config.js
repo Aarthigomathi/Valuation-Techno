@@ -1,8 +1,9 @@
+import { fileURLToPath } from 'node:url';
 export const config = {
   port: Number(process.env.PORT || 4000),
   jwtSecret: process.env.JWT_SECRET || 'valuation-techno-dev-secret-change-in-production',
-  dbPath: process.env.DB_PATH || new URL('../data/valuation.db', import.meta.url).pathname,
-  uploadDir: new URL('../uploads/', import.meta.url).pathname,
+  dbPath: process.env.DB_PATH || fileURLToPath(new URL('../data/valuation.db', import.meta.url)),
+  uploadDir: fileURLToPath(new URL('../uploads/', import.meta.url)),
   inspectorInstantPay: 1200,
   ratingBonus: 500,
   platformCommissionPct: 20,

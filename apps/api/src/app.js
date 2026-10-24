@@ -4,6 +4,7 @@ import multer from 'multer';
 import fs from 'node:fs';
 import crypto from 'node:crypto';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { seed } from './db.js';
 import { config } from './config.js';
 import { requireAuth, requireRole } from './middleware/auth.js';
@@ -27,7 +28,7 @@ app.post('/api/upload', requireAuth, requireRole('INSPECTOR', 'BANK'), upload.si
   res.status(201).json({ filename: req.file.filename, originalName: req.file.originalname, url: `/uploads/${req.file.filename}`, imageHash: hash, category: req.body.category || 'DAMAGE', lat: req.body.lat ? Number(req.body.lat) : undefined, lng: req.body.lng ? Number(req.body.lng) : undefined, capturedAt: req.body.capturedAt || new Date().toISOString() });
 });
 // Serve built frontend when present (single-port demo)
-const webDist = new URL('../../web/dist/', import.meta.url).pathname;
-if (fs.existsSync(webDist)) { app.use(express.static(webDist, { setHeaders: (res, filePath) => { if (filePath.endsWith('index.html')) res.setHeader('Cache-Control', 'no-store, must-revalidate'); } })); app.get('/project.zip', (req, res) => res.download(new URL('../../web/dist/project.zip', import.meta.url).pathname, 'Valuation-Techno-Project.zip')); app.get('*', (req, res, next) => req.path.startsWith('/api') ? next() : res.sendFile(path.join(webDist, 'index.html'))); }
+const webDist = fileURLToPath(new URL('../../web/dist/', import.meta.url));
+if (fs.existsSync(webDist)) { app.use(express.static(webDist, { setHeaders: (res, filePath) => { if (filePath.endsWith('index.html')) res.setHeader('Cache-Control', 'no-store, must-revalidate'); } })); app.get('/project.zip', (req, res) => res.download(fileURLToPath(new URL('../../web/dist/project.zip', import.meta.url)), 'Valuation-Techno-Project.zip')); app.get('*', (req, res, next) => req.path.startsWith('/api') ? next() : res.sendFile(path.join(webDist, 'index.html'))); }
 app.use((err, req, res, next) => { console.error(err); if (err?.name === 'ZodError') return res.status(400).json({ error: 'Validation failed', details: err.errors }); res.status(err.status || 500).json({ error: err.message || 'Internal server error' }); });
 export default app;
