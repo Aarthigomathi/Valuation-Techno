@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { api, token, sessionUser, setSession, clearSession, inr, fmtDate, openAuthed, logoutApi } from './api.js';
-import { FraudGauge, CarTwin, AiScanPanel, MarketChart, LiveMap, AnalyticsPanel, ErrorBoundary } from './components/Advanced.jsx';
+import { FraudGauge, CarTwin, AiScanPanel, MarketChart, LiveMap, AnalyticsPanel, ErrorBoundary, CarShowcase, ValuationDuel } from './components/Advanced.jsx';
 import AdminControlCenter from './components/AdminDashboard.jsx';
 
 const PHASES = ['BROADCAST', 'ASSIGNED', 'INSPECTION_IN_PROGRESS', 'INSPECTION_SUBMITTED', 'AUDIT_REQUIRED', 'REPORT_DELIVERED', 'SETTLED'];
@@ -29,7 +29,7 @@ function Login() {
   const [err, setErr] = useState(''); const [msg, setMsg] = useState(() => { const n = sessionStorage.getItem('vt_notice'); sessionStorage.removeItem('vt_notice'); return n || ''; }); const [mode, setMode] = useState('login'); const [otp, setOtp] = useState(null);
   const doLogin = async (email, password) => { const d = await api('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }); setSession(d.token, d.user); nav('/dashboard'); };
   const demos = [['🏦 Bank (HDFC)', 'bank@valuation.techno', 'Bank@123', 'Creates jobs, gets FULL report, settles'], ['🔍 Inspector Ravi ★4.6', 'inspector@valuation.techno', 'Inspector@123', 'Accepts jobs, inspects, gets instant pay'], ['🚗 Loan Seeker', 'seeker@valuation.techno', 'Seeker@123', 'Sees SUMMARY report, rates inspector'], ['🛡️ Platform Admin', 'admin@valuation.techno', 'Admin@123', 'Audits RED flags, controls platform']];
-  return <div className="wrap login-page"><div className="card login"><h1>Valuation Techno</h1><p className="muted">Smart Valuation. Safer Transactions — AI-powered used vehicle valuation & FinTech platform. <b>Each login opens a different dashboard.</b></p>
+  return <div className="wrap login-page"><div className="card login"><h1>Valuation Techno</h1><p className="muted">Smart Valuation. Safer Transactions — AI-powered used vehicle valuation & FinTech platform. <b>Each login opens a different dashboard.</b></p><CarShowcase />
     {err && <div className="err">{err}</div>}{msg && <div className="ok">{msg}</div>}
     <div className="tabs"><button className={mode === 'login' ? 'on' : ''} onClick={() => setMode('login')}>Login</button><button className={mode === 'register' ? 'on' : ''} onClick={() => setMode('register')}>Register</button><button className={mode === 'otp' ? 'on' : ''} onClick={() => setMode('otp')}>OTP Login</button></div>
     {mode === 'login' && <><label>Email</label><input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="you@bank.com" /><label>Password</label><input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
@@ -103,7 +103,7 @@ function JobDetail({ job, user, reload, onClose }) {
     {job.verification && <details open><summary><b>Vehicle Verification (VAHAN / IIB)</b></summary><table><tbody>{job.verification.checks?.map((c) => <tr key={c.name}><td>{c.name}</td><td>{c.status}</td><td>{c.detail}</td></tr>)}</tbody></table><p className="muted">Accidents: {job.verification.history?.accidentCount} · Claims: {job.verification.history?.claimCount} · Owners: {job.verification.ownership?.ownersCount} · Insurance valid: {job.verification.insurance?.valid ? 'Yes' : 'No'}</p></details>}
     {job.assignedInspector && <p>Inspector: <b>{job.assignedInspector.name}</b> ★ {job.assignedInspector.rating} ({job.assignedInspector.status})</p>}
     {!job.assignedInspector && job.eligibleInspectors?.length > 0 && <p className="muted">Eligible inspectors in radius: {job.eligibleInspectors.map((i) => `${i.name} ★${i.rating} (${i.distanceKm} km)`).join(' · ')}</p>}
-    {v && <div><h3>Dual Valuation</h3><table><tbody><tr><td>Market (DeepSearch)</td><td>{inr(v.marketValue)}</td><td>AI Valuation</td><td>{inr(v.aiValuation)}</td></tr><tr><td>Manual Valuation</td><td>{inr(v.manualValuation)}</td><td>Variance</td><td>{v.variancePct}% <span className={`flag ${v.flag}`}>{v.flag} FLAG</span></td></tr><tr><td>Final Valuation</td><td><b>{inr(v.finalValuation)}</b></td><td>Status</td><td>{v.status}</td></tr></tbody></table><p className="muted">{(v.varianceReasons || []).join('; ')}</p></div>}
+    {v && <div><h3>Dual Valuation</h3><table><tbody><tr><td>Market (DeepSearch)</td><td>{inr(v.marketValue)}</td><td>AI Valuation</td><td>{inr(v.aiValuation)}</td></tr><tr><td>Manual Valuation</td><td>{inr(v.manualValuation)}</td><td>Variance</td><td>{v.variancePct}% <span className={`flag ${v.flag}`}>{v.flag} FLAG</span></td></tr><tr><td>Final Valuation</td><td><b>{inr(v.finalValuation)}</b></td><td>Status</td><td>{v.status}</td></tr></tbody></table><p className="muted">{(v.varianceReasons || []).join('; ')}</p>{user.role !== 'LOAN_SEEKER' && v.aiValuation != null && <ValuationDuel v={v} />}</div>}
     {job.analysis && user.role !== 'LOAN_SEEKER' && <details open><summary><b>AI Damage & Fraud (killfake.ai)</b></summary><p>Damage total: {inr(job.analysis.damage.costBreakdown.totalDamageCost)} · Tire wear {job.analysis.damage.tireWearPct}% · Fraud: <b>{job.analysis.fraud.riskLevel} ({job.analysis.fraud.fraudScore}/100)</b></p><table><tbody>{job.analysis.fraud.checks.map((c) => <tr key={c.name}><td>{c.name}</td><td>{c.status}</td><td>{c.detail}</td></tr>)}</tbody></table></details>}
     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
       {user.role === 'INSPECTOR' && job.status === 'BROADCAST' && <Btn action={async () => { await api(`/jobs/${job.id}/accept`, { method: 'POST' }); await reload(); }}>✓ Accept Job (exclusive)</Btn>}
@@ -208,4 +208,12 @@ function Dashboard() {
     <div id="job-detail">{sel && <ErrorBoundary><JobDetail job={sel} user={user} reload={reload} onClose={() => setSelId(null)} /></ErrorBoundary>}</div>
   </div></div>;
 }
-export default function App() { return <Routes><Route path="/" element={token() ? <Navigate to="/dashboard" /> : <Login />} /><Route path="/dashboard" element={<Dashboard />} /><Route path="*" element={<Navigate to="/" />} /></Routes>; }
+export default function App() {
+  useEffect(() => { // scroll-reveal: cards rise in as they enter the screen
+    const io = new IntersectionObserver((entries) => entries.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('revealed'); io.unobserve(e.target); } }), { threshold: 0.06 });
+    const scan = () => document.querySelectorAll('.card:not(.revealed), .adm-panel:not(.revealed)').forEach((el) => { el.classList.add('reveal'); io.observe(el); });
+    scan(); const mo = new MutationObserver(scan); mo.observe(document.body, { childList: true, subtree: true });
+    const fallback = setTimeout(() => document.querySelectorAll('.reveal').forEach((el) => el.classList.add('revealed')), 2500);
+    return () => { io.disconnect(); mo.disconnect(); clearTimeout(fallback); };
+  }, []);
+  return <Routes><Route path="/" element={token() ? <Navigate to="/dashboard" /> : <Login />} /><Route path="/dashboard" element={<Dashboard />} /><Route path="*" element={<Navigate to="/" />} /></Routes>; }

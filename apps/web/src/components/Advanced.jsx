@@ -130,6 +130,68 @@ export function LiveMap({ job }) {
   </div>;
 }
 
+
+export function CarShowcase() {
+  return <div className="car-showcase" aria-hidden="true">
+    <svg viewBox="0 0 340 160" className="car-svg" role="img" aria-label="Animated vehicle showcase">
+      <defs>
+        <linearGradient id="carBody" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="#22d3ee" /><stop offset="55%" stopColor="#7c3aed" /><stop offset="100%" stopColor="#d946ef" />
+        </linearGradient>
+        <linearGradient id="carGlass" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#bae6fd" /><stop offset="100%" stopColor="#2563eb" />
+        </linearGradient>
+      </defs>
+      <ellipse cx="170" cy="136" rx="138" ry="11" fill="rgba(56,189,248,.14)" />
+      <ellipse cx="170" cy="136" rx="138" ry="11" fill="none" stroke="rgba(125,211,252,.5)" strokeWidth="1.5" strokeDasharray="10 8" className="turntable" />
+      <g className="car-float">
+        <path d="M28 108 L38 82 Q42 70 60 68 L96 44 Q104 34 122 34 L198 34 Q214 34 226 46 L250 66 L288 72 Q306 76 308 92 L308 106 Q308 114 300 114 L272 114 A36 36 0 0 0 200 114 L136 114 A36 36 0 0 0 64 114 L36 114 Q28 114 28 108 Z" fill="url(#carBody)" />
+        <path d="M106 62 L126 42 L194 42 L214 62 Z" fill="url(#carGlass)" opacity="0.95" />
+        <line x1="160" y1="42" x2="160" y2="62" stroke="#0ea5e9" strokeWidth="3" />
+        <line x1="120" y1="66" x2="118" y2="110" stroke="rgba(255,255,255,.35)" strokeWidth="2" />
+        <line x1="216" y1="66" x2="218" y2="110" stroke="rgba(255,255,255,.35)" strokeWidth="2" />
+        <rect x="128" y="76" width="16" height="5" rx="2.5" fill="rgba(255,255,255,.65)" />
+        <rect x="196" y="76" width="16" height="5" rx="2.5" fill="rgba(255,255,255,.65)" />
+        <ellipse cx="302" cy="90" rx="7" ry="4" fill="#fde68a" className="headlight" />
+        <rect x="28" y="86" width="8" height="6" rx="3" fill="#fb7185" />
+        <polygon points="60,40 92,40 44,118 12,118" fill="rgba(255,255,255,.20)" className="car-shine" />
+        <circle cx="252" cy="84" r="6" fill="#f43f5e" className="hotspot" /><circle cx="252" cy="84" r="6" fill="none" stroke="#f43f5e" className="hotspot-ring" />
+        <circle cx="150" cy="98" r="5" fill="#f59e0b" className="hotspot" /><circle cx="150" cy="98" r="5" fill="none" stroke="#f59e0b" className="hotspot-ring" />
+        <g className="wheel-spin"><circle cx="100" cy="114" r="21" fill="#0f172a" stroke="#38bdf8" strokeWidth="2.5" /><circle cx="100" cy="114" r="8" fill="#1e293b" stroke="#7dd3fc" strokeWidth="2" /><line x1="100" y1="97" x2="100" y2="131" stroke="#7dd3fc" strokeWidth="2.5" /><line x1="83" y1="114" x2="117" y2="114" stroke="#7dd3fc" strokeWidth="2.5" /></g>
+        <g className="wheel-spin"><circle cx="236" cy="114" r="21" fill="#0f172a" stroke="#38bdf8" strokeWidth="2.5" /><circle cx="236" cy="114" r="8" fill="#1e293b" stroke="#7dd3fc" strokeWidth="2" /><line x1="236" y1="97" x2="236" y2="131" stroke="#7dd3fc" strokeWidth="2.5" /><line x1="219" y1="114" x2="253" y2="114" stroke="#7dd3fc" strokeWidth="2.5" /></g>
+      </g>
+    </svg>
+    <div className="car-showcase-label">AI Vehicle Scan · Live Preview</div>
+  </div>;
+}
+
+export function ValuationDuel({ v }) {
+  const [go, setGo] = useState(false);
+  useEffect(() => { const t = setTimeout(() => setGo(true), 100); return () => clearTimeout(t); }, []);
+  const ai = useCountUp(v?.aiValuation ?? 0); const manual = useCountUp(v?.manualValuation ?? 0); const final = useCountUp(v?.finalValuation ?? 0);
+  if (!v) return null;
+  const max = Math.max(Number(v.aiValuation || 0), Number(v.manualValuation || 0), 1);
+  const variance = Number(v.variancePct || 0);
+  const needle = -80 + (Math.min(12, variance) / 12) * 160;
+  const greenArc = (5 / 12) * 50;
+  return <div className="duel">
+    <div className="duel-head"><h4>⚔️ AI vs Manual — Valuation Duel</h4><span className={`duel-flag ${v.flag === 'GREEN' ? 'green' : 'red'}`}>{v.flag} FLAG · {variance}% variance</span></div>
+    <div className="duel-row"><span className="duel-label">🤖 AI Valuation</span><div className="duel-track"><div className="duel-bar ai" style={{ width: go ? `${(Number(v.aiValuation || 0) / max) * 100}%` : '0%' }} /></div><strong>{inr(Math.round(ai))}</strong></div>
+    <div className="duel-row"><span className="duel-label">🔍 Manual Valuation</span><div className="duel-track"><div className="duel-bar manual" style={{ width: go ? `${(Number(v.manualValuation || 0) / max) * 100}%` : '0%' }} /></div><strong>{inr(Math.round(manual))}</strong></div>
+    <div className="duel-gauge-wrap">
+      <svg viewBox="0 0 200 122" className="duel-gauge" role="img" aria-label="Variance gauge">
+        <circle cx="100" cy="104" r="72" fill="none" stroke="#1e2d49" strokeWidth="13" pathLength="100" strokeDasharray="50 100" transform="rotate(180 100 104)" />
+        <circle cx="100" cy="104" r="72" fill="none" stroke="#34d399" strokeWidth="13" pathLength="100" strokeDasharray={`${greenArc} 100`} transform="rotate(180 100 104)" />
+        <circle cx="100" cy="104" r="72" fill="none" stroke="#fb7185" strokeWidth="13" pathLength="100" strokeDasharray={`${50 - greenArc} 100`} strokeDashoffset={-greenArc} transform="rotate(180 100 104)" />
+        <g className="duel-needle" style={{ transform: `rotate(${needle}deg)`, transformOrigin: '100px 104px' }}><line x1="100" y1="104" x2="100" y2="48" stroke="#fff" strokeWidth="3.5" strokeLinecap="round" /></g>
+        <circle cx="100" cy="104" r="7" fill="#e7eefb" />
+        <text x="18" y="120" fontSize="9" fill="#8fa3bf">0%</text><text x="86" y="26" fontSize="9" fill="#34d399">≤5% GREEN</text><text x="168" y="120" fontSize="9" fill="#fb7185">12%+</text>
+      </svg>
+      <div className="duel-final"><span>Final Valuation</span><strong>{v.finalValuation ? inr(Math.round(final)) : 'Awaiting audit decision'}</strong><small>{v.flag === 'GREEN' ? 'Auto-approved · average of AI + Manual' : 'Red flag · Admin audit required'}</small></div>
+    </div>
+  </div>;
+}
+
 export function AnalyticsPanel() {
   const [a, setA] = useState(null); const [loadErr, setLoadErr] = useState('');
   // ALL hooks must run before any early return — calling useCountUp after `if (!a)` crashes React (white screen).
