@@ -1,9 +1,8 @@
 // Per-model car photos (violet studio set in /public/cars).
-// Harrier & Hector temporarily use the closest matching SUV/MPV photos.
 const MAP = [
   ['creta', 'creta'], ['swift', 'swift'], ['innova', 'innova'], ['city', 'city'],
   ['xuv', 'xuv700'], ['nexon', 'nexon'], ['seltos', 'seltos'], ['baleno', 'baleno'],
-  ['ecosport', 'ecosport'], ['harrier', 'xuv700'], ['hector', 'innova'],
+  ['ecosport', 'ecosport'], ['harrier', 'harrier'], ['hector', 'hector'],
 ];
 export function carPhotoFor(job) {
   const m = `${job?.make || ''} ${job?.model || ''}`.toLowerCase();
