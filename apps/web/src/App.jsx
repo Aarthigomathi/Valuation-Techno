@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
-import { api, token, sessionUser, setSession, clearSession, inr, fmtDate, openAuthed, logoutApi } from './api.js';
+import { api, token, sessionUser, setSession, clearSession, inr, fmtDate, openAuthed, blobUrl, logoutApi } from './api.js';
 import { FraudGauge, CarTwin, AiScanPanel, MarketChart, LiveMap, AnalyticsPanel, ErrorBoundary, CarShowcase, ValuationDuel, CelebrationHost, SuccessTick, fireCelebration, ChatBox } from './components/Advanced.jsx';
 import AdminControlCenter from './components/AdminDashboard.jsx';
 
