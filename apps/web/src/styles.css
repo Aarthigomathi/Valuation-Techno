@@ -320,3 +320,10 @@ details summary{color:#fff}
 .login-page .tabs button.on{background:linear-gradient(135deg,#7c3aed,#c99645);color:#fff}
 .login-page button{background:linear-gradient(135deg,#7c3aed,#4f46e5 55%,#312e81);border:1px solid rgba(233,195,124,.45);box-shadow:0 14px 30px rgba(76,29,149,.45)}
 .login-page button.ghost{background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.30);box-shadow:none}
+
+/* Real car photo on login (replaces cartoon car) */
+.car-photo-frame{position:relative;display:inline-block;max-width:400px;width:100%;animation:carFloat 6s ease-in-out infinite}
+.car-photo{display:block;width:100%;height:auto;border-radius:18px;border:1px solid rgba(233,195,124,.45);box-shadow:0 22px 50px rgba(5,2,16,.6),0 0 42px rgba(124,58,237,.35)}
+.car-scan-chip{position:absolute;top:10px;right:10px;display:inline-flex;align-items:center;gap:7px;background:rgba(13,6,28,.72);backdrop-filter:blur(8px);color:#f2d492;border:1px solid rgba(233,195,124,.55);border-radius:99px;padding:5px 11px;font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase}
+.car-scan-chip .live-dot{background:#e9c37c;box-shadow:0 0 0 4px rgba(233,195,124,.2)}
+@media(max-width:560px){.car-photo-frame{max-width:320px}}
