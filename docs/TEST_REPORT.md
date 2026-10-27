@@ -49,10 +49,11 @@ Verified by scripted UI-flow: create→accept→start→submit(GREEN 1.74%)→re
 | 22 | User status controls work; administrator accounts and self-changes are protected | ✅ |
 Frontend build passes. The dark Admin Control Centre includes KPI progress rings, donut charts for job status, valuation flags and user roles, audit queue, user and inspector management, all jobs, payments, AI analytics and allocation settings.
 
-## All-updates pack (25/25 PASS)
+## All-updates pack (26/26 PASS)
 | # | Test | Result |
 |---|---|---|
 | 23 | QR report verification: genuine report verifies publicly without login; fake code 404; QR + code embedded in the full HTML report | ✅ |
 | 24 | In-app chat: bank + assigned inspector can message; loan seeker blocked (403) · Live GPS: only the assigned inspector can share location (bank 403), location stored and shown on the job | ✅ |
 | 25 | CSV exports (jobs/ledger) download for Admin/Bank, blocked for seeker · Analytics returns 14-day jobs/revenue series and bank-wise performance | ✅ |
 New UI: public /verify/:code page, Job Chat inside job details, Share Live Location for inspectors with a live marker + animated route on the Broadcast Map, push-notification pop-ups, Admin Audit Log viewer, Export CSV (Excel) buttons, 14-day activity charts and bank-wise analytics. Frontend build passes.
+| 26 | QR code image endpoint serves a real PNG QR for a delivered report (shown in job details + top of full report/PDF), 409 before the report exists | ✅ |

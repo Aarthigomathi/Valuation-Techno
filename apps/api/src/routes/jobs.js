@@ -171,6 +171,16 @@ r.post('/:id/messages', wrap(async (req, res) => {
   res.status(201).json(msg);
 }));
 
+// QR code image (PNG) for this job's public report-verification page —
+// used directly inside the app (job details) as well as on printed reports.
+r.get('/:id/qr', wrap(async (req, res) => {
+  const job = getJob(req.params.id); if (!job) return res.status(404).json({ error: 'Job not found' });
+  const v = getValuation(job.id); if (!v?.finalValuation) return res.status(409).json({ error: 'Report not ready yet' });
+  const url = `${req.protocol}://${req.get('host')}/verify/${verifyCodeFor(job.id)}`;
+  const buf = await QRCode.toBuffer(url, { width: 220, margin: 1 });
+  res.setHeader('Content-Type', 'image/png'); res.send(buf);
+}));
+
 // Phase 5 — Reports (seeker can only see summary; enforced server-side)
 r.get('/:id/report', wrap(async (req, res) => {
   const jobRow = getJob(req.params.id); if (!jobRow) return res.status(404).json({ error: 'Job not found' });

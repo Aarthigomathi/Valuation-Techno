@@ -131,7 +131,7 @@ function JobDetail({ job, user, reload, onClose }) {
     </div>
     {user.role === 'INSPECTOR' && job.assignedInspector?.id === user.id && ['ASSIGNED', 'INSPECTION_IN_PROGRESS'].includes(job.status) && <LiveShare job={job} />}
     {user.role === 'INSPECTOR' && ['ASSIGNED', 'INSPECTION_IN_PROGRESS'].includes(job.status) && <InspectionForm job={job} reload={reload} />}
-    {job.verifyCode && <p>🔐 Report Verification Code: <b>{job.verifyCode}</b> · <a href={`/verify/${job.verifyCode}`} target="_blank" rel="noreferrer">Open public verification page</a></p>}
+    {job.verifyCode && <div style={{ display: 'flex', gap: 14, alignItems: 'center', marginTop: 12, flexWrap: 'wrap' }}><img src={`/api/jobs/${job.id}/qr`} alt="Report verification QR code" width="110" height="110" style={{ background: '#fff', padding: 6, borderRadius: 10 }} /><p style={{ margin: 0 }}>🔐 <b>Report Verification</b><br />Verification Code: <b>{job.verifyCode}</b><br /><span className="muted">Scan this QR code (it is also printed at the top of the full report & PDF), or</span> <a href={`/verify/${job.verifyCode}`} target="_blank" rel="noreferrer">open the public verification page</a></p></div>}
     {['BANK', 'INSPECTOR', 'ADMIN'].includes(user.role) && <ChatBox jobId={job.id} me={user} />}
     {user.role === 'ADMIN' && job.status === 'AUDIT_REQUIRED' && <AuditBox job={job} reload={reload} />}
     {user.role === 'LOAN_SEEKER' && job.status === 'REPORT_DELIVERED' && !job.rating && <RateBox job={job} reload={reload} />}

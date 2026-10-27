@@ -7,7 +7,7 @@ India's AI-powered Used Vehicle Valuation & FinTech platform — complete implem
 npm install
 npm run build      # builds React frontend
 npm start          # API + frontend on http://localhost:4000
-npm test           # 25 automated tests (Node test runner + Supertest + WebSocket)
+npm test           # 26 automated tests (Node test runner + Supertest + WebSocket)
 ```
 Open **http://localhost:4000** and use one-click demo logins (or passwords below).
 

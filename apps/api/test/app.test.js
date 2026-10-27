@@ -246,3 +246,17 @@ describe('All-updates pack: QR verify, chat, live GPS, CSV, analytics series', (
     expect(typeof a.body.banks[0].jobs).toBe('number');
   });
 });
+
+describe('QR code image (in-app + reports)', () => {
+  it('serves a PNG QR image for a delivered report, 409 before the report exists', async () => {
+    const jobs = await request(app).get('/api/jobs').set(auth(T.bank));
+    const done = jobs.body.find((j) => j.valuation?.finalValuation);
+    expect(done).toBeTruthy();
+    const det = await request(app).get(`/api/jobs/${done.id}`).set(auth(T.bank));
+    expect(det.body.verifyCode).toBeTruthy();
+    const qr = await request(app).get(`/api/jobs/${done.id}/qr`).set(auth(T.bank));
+    expect(qr.status).toBe(200); expect(qr.headers['content-type']).toContain('image/png');
+    const fresh = await createJob('TN38QR2222');
+    expect((await request(app).get(`/api/jobs/${fresh.id}/qr`).set(auth(T.bank))).status).toBe(409);
+  });
+});
