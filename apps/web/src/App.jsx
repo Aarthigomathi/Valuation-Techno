@@ -266,6 +266,35 @@ function VerifyPage() {
     {!state.loading && !state.authentic && <><h2 style={{ color: '#fb7185' }}>Not Verified ❌</h2><p className="muted">{state.error || 'This verification code does not match any genuine Valuation Techno report.'}</p></>}
     <p><a href="/">← Open Valuation Techno</a></p></div></div>;
 }
+function SplashScreen() {
+  const [pct, setPct] = useState(0);
+  const [leaving, setLeaving] = useState(false);
+  const [gone, setGone] = useState(false);
+  const timers = useRef([]);
+  useEffect(() => {
+    const t0 = Date.now();
+    const iv = setInterval(() => setPct(Math.min(100, Math.round((Date.now() - t0) / 16))), 30);
+    const later = (fn, ms) => { const id = setTimeout(fn, ms); timers.current.push(id); };
+    later(() => { clearInterval(iv); setPct(100); }, 1650);
+    later(() => setLeaving(true), 1950);
+    later(() => setGone(true), 2600);
+    return () => { clearInterval(iv); timers.current.forEach(clearTimeout); };
+  }, []);
+  const skip = () => { setLeaving(true); timers.current.push(setTimeout(() => setGone(true), 380)); };
+  if (gone) return null;
+  return <div className={`splash${leaving ? ' splash-leave' : ''}`} onClick={skip} role="status" aria-label="Loading Valuation Techno">
+    <span className="splash-glow splash-glow-a" /><span className="splash-glow splash-glow-b" />
+    <div className="splash-inner">
+      <div className="splash-logo">VT</div>
+      <h1 className="splash-title">Valuation <span>Techno</span></h1>
+      <p className="splash-tag">Smart Valuation. Safer Transactions.</p>
+      <div className="splash-car-frame"><img src="/real-car.jpg" alt="Premium valuation car" className="splash-car" /></div>
+      <div className="splash-bar"><i style={{ width: `${pct}%` }} /></div>
+      <div className="splash-meta"><span>AI Valuation Engine Starting…</span><b>{pct}%</b></div>
+      <p className="splash-skip">Tap anywhere to skip</p>
+    </div>
+  </div>;
+}
 export default function App() {
   useEffect(() => { // scroll-reveal: cards rise in as they enter the screen
     const io = new IntersectionObserver((entries) => entries.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('revealed'); io.unobserve(e.target); } }), { threshold: 0.06 });
@@ -274,4 +303,4 @@ export default function App() {
     const fallback = setTimeout(() => document.querySelectorAll('.reveal').forEach((el) => el.classList.add('revealed')), 2500);
     return () => { io.disconnect(); mo.disconnect(); clearTimeout(fallback); };
   }, []);
-  return <><CelebrationHost /><Routes><Route path="/" element={token() ? <Navigate to="/dashboard" /> : <Login />} /><Route path="/dashboard" element={<Dashboard />} /><Route path="*" element={<Navigate to="/" />} /></Routes></>; }
+  return <><SplashScreen /><CelebrationHost /><Routes><Route path="/" element={token() ? <Navigate to="/dashboard" /> : <Login />} /><Route path="/dashboard" element={<Dashboard />} /><Route path="*" element={<Navigate to="/" />} /></Routes></>; }

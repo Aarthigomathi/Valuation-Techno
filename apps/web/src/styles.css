@@ -327,3 +327,27 @@ details summary{color:#fff}
 .car-scan-chip{position:absolute;top:10px;right:10px;display:inline-flex;align-items:center;gap:7px;background:rgba(13,6,28,.72);backdrop-filter:blur(8px);color:#f2d492;border:1px solid rgba(233,195,124,.55);border-radius:99px;padding:5px 11px;font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase}
 .car-scan-chip .live-dot{background:#e9c37c;box-shadow:0 0 0 4px rgba(233,195,124,.2)}
 @media(max-width:560px){.car-photo-frame{max-width:320px}}
+
+/* ===== Premium splash screen (logo + real car + loading bar) ===== */
+.splash{position:fixed;inset:0;z-index:2000;display:grid;place-items:center;overflow:hidden;background:radial-gradient(circle at 82% -6%,rgba(124,58,237,.5),transparent 42%),radial-gradient(circle at 10% 108%,rgba(201,150,69,.28),transparent 40%),linear-gradient(160deg,#1b0640 0%,#150833 48%,#0d0518 100%);opacity:1;visibility:visible;transition:opacity .6s ease,visibility .6s ease;cursor:pointer}
+.splash-leave{opacity:0;visibility:hidden;pointer-events:none}
+.splash-glow{position:absolute;border-radius:50%;filter:blur(70px);pointer-events:none}
+.splash-glow-a{width:340px;height:340px;right:-80px;top:-90px;background:rgba(124,58,237,.55)}
+.splash-glow-b{width:280px;height:280px;left:-70px;bottom:-80px;background:rgba(201,150,69,.4)}
+.splash-inner{position:relative;text-align:center;padding:26px 22px;width:100%;max-width:540px;animation:splashRise .7s cubic-bezier(.2,.9,.3,1) both}
+@keyframes splashRise{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
+.splash-logo{width:78px;height:78px;margin:0 auto 14px;border-radius:23px;display:grid;place-items:center;background:linear-gradient(135deg,#e9c37c,#7c3aed 58%,#4f46e5);font-size:27px;font-weight:900;letter-spacing:.04em;color:#fff;box-shadow:0 20px 44px rgba(124,58,237,.55),inset 0 1px 0 rgba(255,255,255,.55);animation:splashPulse 2.1s ease-in-out infinite}
+@keyframes splashPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.055)}}
+.splash-title{margin:0;font-size:34px;line-height:1.12;color:#fff;font-weight:900;letter-spacing:.01em}
+.splash-title span{background:linear-gradient(90deg,#ddd6fe,#a78bfa,#e9c37c);-webkit-background-clip:text;background-clip:text;color:transparent}
+.splash-tag{margin:7px 0 4px;color:#c9c1ef;font-size:13.5px;letter-spacing:.02em}
+.splash-car-frame{margin:16px auto 18px;max-width:430px;animation:splashDrive 1.5s cubic-bezier(.16,.84,.3,1) both}
+@keyframes splashDrive{from{opacity:0;transform:translateX(70px) scale(.96)}60%{opacity:1}to{opacity:1;transform:none}}
+.splash-car{display:block;width:100%;height:auto;border-radius:17px;border:1px solid rgba(233,195,124,.55);box-shadow:0 26px 54px rgba(3,1,10,.65),0 0 46px rgba(124,58,237,.4)}
+.splash-bar{height:6px;border-radius:99px;background:rgba(167,139,250,.25);overflow:hidden;max-width:430px;margin:0 auto;text-align:left}
+.splash-bar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#7c3aed,#a78bfa,#e9c37c);box-shadow:0 0 14px rgba(233,195,124,.65);transition:width .12s linear}
+.splash-meta{display:flex;justify-content:space-between;max-width:430px;margin:9px auto 0;color:#aaa1d4;font-size:12px}
+.splash-meta b{color:#f2d492;font-size:13px}
+.splash-skip{margin:16px 0 0;color:rgba(201,193,239,.55);font-size:11px;letter-spacing:.08em;text-transform:uppercase}
+@media(max-width:560px){.splash-title{font-size:27px}.splash-logo{width:66px;height:66px;font-size:23px;border-radius:19px}.splash-car-frame{max-width:330px}}
+@media (prefers-reduced-motion: reduce){.splash-inner,.splash-car-frame,.splash-logo{animation:none}}
