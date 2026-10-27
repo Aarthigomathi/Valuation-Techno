@@ -33,12 +33,20 @@ export async function openAuthed(path) {
   setTimeout(() => URL.revokeObjectURL(url), 60000);
 }
 export async function downloadAuthed(path, filename) {
+  const url = path.startsWith('/api') ? path : BASE + path;
+  // Open the file in a new browser tab: the HttpOnly session cookie authenticates
+  // the request and the server replies with Content-Disposition: attachment, so
+  // the browser downloads it. A programmatic blob download is silently blocked
+  // inside sandboxed preview iframes, which is why the new tab is used first.
+  const w = window.open(url, '_blank');
+  if (w) return;
+  // Fallback (pop-ups blocked): fetch as blob and trigger a normal download.
   const t = token();
-  const res = await fetch(path.startsWith('/api') ? path : BASE + path, { credentials: 'same-origin', headers: { ...(t ? { Authorization: `Bearer ${t}`, 'X-Auth-Token': t } : {}) } });
+  const res = await fetch(url, { credentials: 'same-origin', headers: { ...(t ? { Authorization: `Bearer ${t}`, 'X-Auth-Token': t } : {}) } });
   if (!res.ok) throw new Error(`Download failed (${res.status})`);
-  const blob = await res.blob(); const url = URL.createObjectURL(blob);
-  const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 5000);
+  const blob = await res.blob(); const objUrl = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = objUrl; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(objUrl), 5000);
 }
 export const inr = (n) => n === null || n === undefined ? '—' : '₹' + Number(n).toLocaleString('en-IN');
 export const fmtDate = (s) => s ? new Date(s).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) : '—';
