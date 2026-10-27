@@ -235,3 +235,88 @@ select{appearance:none;background-image:linear-gradient(45deg,transparent 50%,#7
 }
 /* respect users who prefer less motion on small screens too */
 @media(max-width:760px) and (prefers-reduced-motion:reduce){.wrap{animation:none}}
+
+/* ===== Royal Aurora Premium theme (client-chosen UI: violet aurora + champagne gold + frosted glass) ===== */
+:root{--navy:#0e0620;--blue:#7c3aed;--sky:rgba(167,139,250,.16);--ink:#f4f1ff;--mut:#aaa1d4;--line:#372a63;--card:#180b31;--gold:#e9c37c;--gold-2:#c99645}
+html{background:#0d0518}
+body{background:radial-gradient(circle at 85% -10%,rgba(124,58,237,.34),transparent 38%),radial-gradient(circle at 8% 0,rgba(79,70,229,.30),transparent 34%),radial-gradient(circle at 50% 115%,rgba(201,150,69,.14),transparent 42%),#0d0518;color:var(--ink)}
+a{color:#c4b5fd}
+::-webkit-scrollbar-track{background:#0a0516}::-webkit-scrollbar-thumb{background:#3a2a68}::-webkit-scrollbar-thumb:hover{background:#4c3790}
+::selection{background:rgba(167,139,250,.45)}
+.topbar{background:linear-gradient(120deg,#150833,#2a1160 55%,#3b1478)!important;border-bottom:1px solid rgba(196,181,253,.30);box-shadow:0 14px 38px rgba(5,2,16,.55)}
+.brand span{background:linear-gradient(90deg,#ddd6fe,#a78bfa,#e9c37c);-webkit-background-clip:text;background-clip:text;color:transparent}
+.card{background:linear-gradient(180deg,rgba(43,24,84,.88),rgba(19,9,39,.95));border:1px solid rgba(167,139,250,.28);box-shadow:inset 0 1px 0 rgba(233,195,124,.14),0 20px 48px rgba(5,2,16,.5)}
+@media(hover:hover) and (min-width:821px){.card:hover{border-color:rgba(196,181,253,.5);box-shadow:inset 0 1px 0 rgba(233,195,124,.2),0 26px 56px rgba(5,2,16,.6)}}
+.card h2:after{background:linear-gradient(90deg,#a78bfa,#7c3aed,#e9c37c)}
+.stat{background:linear-gradient(120deg,#ffffff,#ddd6fe 55%,#e9c37c);-webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:none}
+.muted{color:var(--mut)}
+button,.btn{background:linear-gradient(135deg,#7c3aed,#4f46e5);border:1px solid rgba(196,181,253,.45);box-shadow:0 10px 24px rgba(124,58,237,.35)}
+button.ghost,.btn.ghost{background:rgba(124,58,237,.13);color:#ddd6fe;border:1px solid rgba(167,139,250,.4);box-shadow:none}
+button.green{background:linear-gradient(135deg,#b8860b,#e9c37c);color:#241703;border-color:rgba(233,195,124,.6);box-shadow:0 10px 24px rgba(201,150,69,.35)}
+button.danger{background:linear-gradient(135deg,#be123c,#fb7185)}
+input,select,textarea{background:rgba(13,6,28,.85)!important;border:1px solid #372a63!important;color:#f4f1ff!important;caret-color:#e9c37c}
+input::placeholder,textarea::placeholder{color:#7d74a8}
+input:focus,select:focus,textarea:focus{outline:2px solid rgba(167,139,250,.5);border-color:#a78bfa!important}
+select{background-image:linear-gradient(45deg,transparent 50%,#c4b5fd 50%),linear-gradient(135deg,#c4b5fd 50%,transparent 50%)}
+label{color:#ddd6fe}
+.pill{background:rgba(233,195,124,.14);color:#f2d492;border:1px solid rgba(233,195,124,.35)}
+.step{background:rgba(124,58,237,.12);color:#bdb2e8;border:1px solid #372a63}
+.step.on{background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff;border-color:transparent}
+.tabs button{background:rgba(19,9,39,.8);color:#c9c1ef;border:1px solid #372a63}
+.tabs button.on{background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff;border-color:transparent;box-shadow:0 10px 22px rgba(124,58,237,.35)}
+th{color:#a79fd0}th,td{border-bottom:1px solid rgba(55,42,99,.8)}
+@media(hover:hover){tbody tr:hover{background:rgba(167,139,250,.06)}}
+.kbd{background:rgba(124,58,237,.14);color:#ddd6fe;border-color:#372a63}
+.toastbar{background:linear-gradient(90deg,#1c0b3d,#4c1d95);border:1px solid rgba(196,181,253,.4)}
+.scanbox{background:linear-gradient(180deg,#1c0b3d,#0d0518);border:1px solid #372a63;color:#e9e4ff}
+.duel,.chatbox{background:linear-gradient(180deg,rgba(32,16,64,.92),rgba(14,6,30,.95));border:1px solid rgba(167,139,250,.3)}
+.duel-track{background:#372a63}
+.duel-bar.ai{background:linear-gradient(90deg,#6d28d9,#a78bfa)}
+.duel-bar.manual{background:linear-gradient(90deg,#b8860b,#e9c37c)}
+.chat-msg{background:rgba(124,58,237,.10);border:1px solid #372a63}
+.chat-msg.own{background:linear-gradient(135deg,rgba(124,58,237,.45),rgba(79,70,229,.3));border-color:rgba(196,181,253,.45)}
+.series-bar.jobs-bar{background:linear-gradient(180deg,#a78bfa,#6d28d9)}
+.series-bar.rev-bar{background:linear-gradient(180deg,#f2d492,#c99645)}
+.series-col small{color:#7d74a8}
+.push-toast{background:linear-gradient(135deg,#1c0b3d,#3b1478);border:1px solid rgba(233,195,124,.5);color:#fff7e6}
+.celebration-toast{background:linear-gradient(180deg,rgba(34,17,66,.98),rgba(15,7,32,.98));border:1px solid rgba(233,195,124,.55)}
+details summary{color:#fff}
+/* Admin Control Centre in Royal Aurora */
+.adm-center{--adm-bg:#0e0620;--adm-panel:#170b31;--adm-panel2:#20103f;--adm-line:#372a63;--adm-text:#f4f1ff;--adm-muted:#aaa1d4;background:radial-gradient(circle at 85% -10%,rgba(124,58,237,.34),transparent 34%),radial-gradient(circle at 12% 0,rgba(79,70,229,.26),transparent 30%),radial-gradient(circle at 90% 110%,rgba(201,150,69,.12),transparent 36%),var(--adm-bg);border-color:#2c1c52}
+.adm-sidebar{background:rgba(9,4,20,.78)}
+.adm-logo{background:linear-gradient(135deg,#e9c37c,#7c3aed 60%,#4f46e5);box-shadow:0 12px 28px rgba(124,58,237,.45)}
+.adm-sidebar nav button.active{background:linear-gradient(90deg,rgba(124,58,237,.28),rgba(233,195,124,.14));border-color:rgba(196,181,253,.4);box-shadow:inset 3px 0 #e9c37c}
+.adm-live-box{background:rgba(15,7,32,.9)}
+.adm-eyebrow{color:#e9c37c}
+.adm-hero{background:linear-gradient(135deg,rgba(46,20,96,.92),rgba(19,9,39,.9));border-color:rgba(167,139,250,.3)}
+.adm-progress-ring circle:not(.adm-ring-track){stroke:#e9c37c}
+.adm-ring-track{stroke:#2c1c52}
+.adm-kpi{background:linear-gradient(180deg,rgba(35,18,70,.92),rgba(17,8,35,.96));border:1px solid rgba(167,139,250,.26)}
+.adm-kpi:before{background:linear-gradient(90deg,#a78bfa,#e9c37c)}
+.adm-kpi-violet:before{background:linear-gradient(90deg,#7c3aed,#c4b5fd)}
+.adm-panel{background:linear-gradient(180deg,rgba(35,18,70,.92),rgba(15,7,32,.96));border:1px solid rgba(167,139,250,.26)}
+.adm-btn{background:linear-gradient(135deg,#7c3aed,#4f46e5);border-color:rgba(196,181,253,.45)}
+.adm-btn.green{background:linear-gradient(135deg,#b8860b,#e9c37c);color:#241703}
+.adm-btn.outline{background:rgba(124,58,237,.14);color:#e9e4ff}
+.adm-total-badge{background:rgba(233,195,124,.13);color:#f2d492;border-color:rgba(233,195,124,.35)}
+.adm-table th{background:#150833;color:#a79fd0}
+.adm-table{background:rgba(10,5,22,.5)}
+.adm-table td{border-top:1px solid rgba(55,42,99,.75)}
+.adm-inspector-card,.adm-audit-row{background:rgba(13,6,28,.75);border-color:rgba(167,139,250,.26)}
+.adm-donut-track{stroke:#241547}
+.adm-legend-row{border-bottom:1px solid rgba(55,42,99,.65);color:#ddd6fe}
+.adm-list-row{border-bottom:1px solid rgba(55,42,99,.7)}
+.adm-segmented{background:rgba(13,6,28,.85);border-color:#372a63}
+.adm-segmented button.active{background:linear-gradient(135deg,#7c3aed,#4f46e5)}
+.adm-setting-summary span{background:rgba(13,6,28,.8);border:1px solid #372a63}
+.adm-filter-row input,.adm-filter-row select{background:rgba(13,6,28,.85)!important;border-color:#372a63!important;color:#f4f1ff!important}
+.adm-analytics .card{background:rgba(15,7,32,.95)!important;border-color:rgba(167,139,250,.26)!important}
+.adm-analytics .muted{color:var(--adm-muted)!important}
+/* Login page in matching Royal Aurora (kept distinct from dashboards) */
+.login-page{background:radial-gradient(circle at 16% 14%,rgba(217,70,239,.34),transparent 34%),radial-gradient(circle at 86% 10%,rgba(233,195,124,.26),transparent 32%),radial-gradient(circle at 82% 92%,rgba(99,102,241,.36),transparent 40%),linear-gradient(135deg,#1b0640 0%,#4c1d95 42%,#312e81 74%,#1e1b4b 100%)}
+.login-page:before{background:#7c3aed}
+.login-page:after{background:#c99645;opacity:.4}
+.login-page .card.login h1{background:linear-gradient(90deg,#ffffff,#ddd6fe,#e9c37c);-webkit-background-clip:text;background-clip:text;color:transparent}
+.login-page .tabs button.on{background:linear-gradient(135deg,#7c3aed,#c99645);color:#fff}
+.login-page button{background:linear-gradient(135deg,#7c3aed,#4f46e5 55%,#312e81);border:1px solid rgba(233,195,124,.45);box-shadow:0 14px 30px rgba(76,29,149,.45)}
+.login-page button.ghost{background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.30);box-shadow:none}
