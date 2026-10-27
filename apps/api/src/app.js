@@ -12,6 +12,7 @@ import authRoutes from './routes/auth.js';
 import jobRoutes from './routes/jobs.js';
 import adminRoutes from './routes/admin.js';
 import analyticsRoutes from './routes/analytics.js';
+import verifyRoutes from './routes/verify.js';
 
 seed();
 const app = express();
@@ -19,7 +20,7 @@ app.use((req, res, next) => { res.setHeader('X-Content-Type-Options', 'nosniff')
 app.use(cors({ origin: process.env.CORS_ORIGIN || true })); app.use(express.json({ limit: '5mb' }));
 app.use('/uploads', express.static(config.uploadDir));
 app.get('/api/health', (req, res) => res.json({ ok: true, service: 'Valuation Techno API', time: new Date().toISOString() }));
-app.use('/api/auth', authRoutes); app.use('/api/jobs', jobRoutes); app.use('/api/admin', adminRoutes); app.use('/api', analyticsRoutes);
+app.use('/api/auth', authRoutes); app.use('/api/jobs', jobRoutes); app.use('/api/admin', adminRoutes); app.use('/api/verify', verifyRoutes); app.use('/api', analyticsRoutes);
 // Mobile App Layer: file upload with geo/time metadata + content hash for killfake duplicate checks
 const upload = multer({ dest: config.uploadDir, limits: { fileSize: 10 * 1024 * 1024 } });
 app.post('/api/upload', requireAuth, requireRole('INSPECTOR', 'BANK'), upload.single('file'), (req, res) => {

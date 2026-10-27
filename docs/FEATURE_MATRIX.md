@@ -29,5 +29,13 @@ Legend: ✅ Real & working in-app · 🔌 Interface-ready (live vendor key swaps
 | APIs named: Maps geo, Payment gateway, SMS/push (Twilio/Firebase) | 🔌 | Browser Geo/Camera APIs real; gateway/notification providers interface-ready |
 | AI models: YOLOv8, Mask R-CNN, XGBoost, killfake, LR ensemble, DT/SVM scoring | 🔌 | Deterministic simulators behind the exact model contracts (Python FastAPI swap-in documented) |
 
+| QR-verified reports + public verification page | ✅ | `verifyCodeFor` + `qrcode`, QR in HTML & PDF reports, `/verify/:code` |
+| Audit Log viewer (Admin) | ✅ | `/admin/audit-log` + Audit Log section in Admin Control Centre |
+| Live inspector GPS tracking | ✅ | `POST /jobs/:id/location`, live marker + animated route on LiveMap |
+| In-app job chat (Bank · Inspector · Admin) | ✅ | `messages` table + `/jobs/:id/messages`, ChatBox in job details |
+| Push-notification pop-ups | ✅ | WebSocket events -> toast stack on every dashboard |
+| 14-day activity charts + bank-wise analytics | ✅ | `/analytics` series + banks, charts in Analytics panel |
+| Excel-ready CSV exports (jobs & ledger) | ✅ | `/admin/export/*.csv` + download buttons |
+
 **Creative/advanced additions:** real-time WebSocket dashboards with live activity feed, vehicle Digital Twin with pulsing damage hotspots, AI scan animation, animated fraud gauge, DeepSearch market forecast chart, live broadcast map, AI analytics (fraud distribution, variance health, volume forecast), count-up KPIs, camera/GPS capture, offline inspection drafts.
 **Honest boundary:** without paid vendor keys, external registries (VAHAN/IIB/Razorpay/Twilio) and ML models run as deterministic providers — the *product behaviour* (rules, money, states, security, real-time sync, multi-user roles) is fully real, persisted, and tested.

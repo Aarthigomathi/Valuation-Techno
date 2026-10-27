@@ -39,6 +39,19 @@ r.patch('/settings', requireRole('ADMIN'), wrap(async (req, res) => {
   if (b.allocationMode) settings.set('allocationMode', b.allocationMode); if (b.radiusKm) settings.set('radiusKm', b.radiusKm);
   audit(null, req.user.id, 'SETTINGS_UPDATED', JSON.stringify(b)); res.json({ allocationMode: settings.allocationMode, radiusKm: settings.radiusKm });
 }));
+const csvCell = (v) => '"' + String(v ?? '').replaceAll('"', '""') + '"';
+const sendCsv = (res, name, header, rows) => { res.setHeader('Content-Type', 'text/csv; charset=utf-8'); res.setHeader('Content-Disposition', `attachment; filename="${name}"`); res.send([header, ...rows].join('\n')); };
+r.get('/export/jobs.csv', requireRole('ADMIN', 'BANK'), wrap(async (req, res) => {
+  const rows = db.prepare(`SELECT j.regNumber, j.make, j.model, j.year, j.status, j.valuationFee, j.createdAt, v.flag, v.finalValuation, i.name inspector
+    FROM jobs j LEFT JOIN valuations v ON v.jobId=j.id LEFT JOIN users i ON i.id=j.assignedInspectorId ORDER BY j.createdAt DESC`).all();
+  sendCsv(res, 'valuation-jobs.csv', 'Reg Number,Make,Model,Year,Status,Fee,Created,Flag,Final Valuation,Inspector',
+    rows.map((x) => [x.regNumber, x.make, x.model, x.year, x.status, x.valuationFee, x.createdAt, x.flag || '', x.finalValuation || '', x.inspector || ''].map(csvCell).join(',')));
+}));
+r.get('/export/ledger.csv', requireRole('ADMIN', 'BANK'), wrap(async (req, res) => {
+  const rows = db.prepare('SELECT * FROM ledger ORDER BY createdAt DESC').all();
+  sendCsv(res, 'valuation-ledger.csv', 'Type,From,To,Amount,Status,Date',
+    rows.map((x) => [x.type, x.fromParty, x.toParty, x.amount, x.status, x.createdAt].map(csvCell).join(',')));
+}));
 r.get('/audit-log', requireRole('ADMIN'), wrap(async (req, res) => res.json(db.prepare('SELECT * FROM audit_log ORDER BY createdAt DESC LIMIT 200').all())));
 r.get('/ledger', requireAuth, wrap(async (req, res) => {
   if (req.user.role === 'INSPECTOR') return res.json(db.prepare('SELECT * FROM ledger WHERE userId=? ORDER BY createdAt DESC').all(req.user.id));

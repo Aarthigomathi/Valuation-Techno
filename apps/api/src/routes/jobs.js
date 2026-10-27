@@ -3,11 +3,12 @@ import { z } from 'zod';
 import PDFDocument from 'pdfkit';
 import { db, settings, audit, notify, addLedger, parseJob } from '../db.js';
 import { config } from '../config.js';
-import { uid, now, round2, clamp, haversineKm, variancePct, isGreen } from '../utils.js';
+import { uid, now, round2, clamp, haversineKm, variancePct, isGreen, verifyCodeFor } from '../utils.js';
 import { requireAuth, requireRole, wrap } from '../middleware/auth.js';
 import { verifyVehicle, deepSearchMarketValue, analyzeDamage, analyzeFraud, computePlatformScore } from '../services/providers.js';
 import { fullReportHtml, summaryReportHtml } from '../services/report.js';
 import { publish } from '../realtime.js';
+import QRCode from 'qrcode';
 
 const r = Router(); r.use(requireAuth);
 const getJob = (id) => db.prepare('SELECT * FROM jobs WHERE id=?').get(id);
@@ -25,6 +26,8 @@ function detail(job) {
     eligibleInspectors: eligibleInspectors(job).map((u) => ({ id: u.id, name: u.name, rating: u.rating, distanceKm: u.distanceKm, status: u.status })),
     rating: db.prepare('SELECT * FROM ratings WHERE jobId=?').get(job.id) || null,
     bankFeedback: (() => { const f = db.prepare('SELECT * FROM bank_feedback WHERE jobId=?').get(job.id); return f ? { ...f, scores: JSON.parse(f.scoresJson) } : null; })(),
+    verifyCode: (() => { const v = getValuation(job.id); return v?.finalValuation ? verifyCodeFor(job.id) : null; })(),
+    inspectorLocation: job.inspectorLat != null ? { lat: job.inspectorLat, lng: job.inspectorLng, updatedAt: job.locationUpdatedAt } : null,
     ledger: db.prepare('SELECT * FROM ledger WHERE jobId=? ORDER BY createdAt').all(job.id) };
 }
 export function runPipeline(jobRow, actorId) {
@@ -139,12 +142,43 @@ r.post('/:id/audit', requireRole('ADMIN'), wrap(async (req, res) => {
   res.json(detail(getJob(job.id)));
 }));
 
+
+// Live GPS tracking — the assigned inspector shares live location with bank/admin
+r.post('/:id/location', requireRole('INSPECTOR'), wrap(async (req, res) => {
+  const b = z.object({ lat: z.number(), lng: z.number() }).parse(req.body);
+  const job = getJob(req.params.id); if (!job) return res.status(404).json({ error: 'Job not found' });
+  if (job.assignedInspectorId !== req.user.id) return res.status(403).json({ error: 'Only the assigned inspector can share live location for this job' });
+  db.prepare('UPDATE jobs SET inspectorLat=?, inspectorLng=?, locationUpdatedAt=?, updatedAt=? WHERE id=?').run(b.lat, b.lng, now(), now(), job.id);
+  publish({ type: 'INSPECTOR_LOCATION', jobId: job.id, regNumber: job.regNumber, lat: b.lat, lng: b.lng, roles: ['BANK', 'ADMIN', 'INSPECTOR'] });
+  res.json({ ok: true });
+}));
+
+// In-app chat between the bank, the assigned inspector and admin on a job
+const canChat = (job, user) => user.role === 'ADMIN' || (user.role === 'BANK' && job.bankId === user.id) || (user.role === 'INSPECTOR' && job.assignedInspectorId === user.id);
+r.get('/:id/messages', wrap(async (req, res) => {
+  const job = getJob(req.params.id); if (!job) return res.status(404).json({ error: 'Job not found' });
+  if (!canChat(job, req.user)) return res.status(403).json({ error: 'You are not part of this job chat' });
+  res.json(db.prepare('SELECT * FROM messages WHERE jobId=? ORDER BY createdAt').all(job.id));
+}));
+r.post('/:id/messages', wrap(async (req, res) => {
+  const b = z.object({ body: z.string().min(1).max(1000) }).parse(req.body);
+  const job = getJob(req.params.id); if (!job) return res.status(404).json({ error: 'Job not found' });
+  if (!canChat(job, req.user)) return res.status(403).json({ error: 'You are not part of this job chat' });
+  const sender = db.prepare('SELECT name FROM users WHERE id=?').get(req.user.id);
+  const msg = { id: uid(), jobId: job.id, senderId: req.user.id, senderName: sender?.name || req.user.role, senderRole: req.user.role, body: b.body, createdAt: now() };
+  db.prepare('INSERT INTO messages VALUES(?,?,?,?,?,?,?)').run(msg.id, msg.jobId, msg.senderId, msg.senderName, msg.senderRole, msg.body, msg.createdAt);
+  publish({ type: 'JOB_MESSAGE', jobId: job.id, regNumber: job.regNumber, roles: ['BANK', 'ADMIN', 'INSPECTOR'] });
+  res.status(201).json(msg);
+}));
+
 // Phase 5 — Reports (seeker can only see summary; enforced server-side)
 r.get('/:id/report', wrap(async (req, res) => {
   const jobRow = getJob(req.params.id); if (!jobRow) return res.status(404).json({ error: 'Job not found' });
   const job = parseJob(jobRow); const valuation = getValuation(job.id); if (!valuation || !valuation.finalValuation) return res.status(409).json({ error: 'Final valuation not ready (audit may be pending)' });
   const variant = req.user.role === 'LOAN_SEEKER' ? 'summary' : (req.query.variant === 'summary' ? 'summary' : 'full');
-  const data = { job, inspection: getInspection(job.id), analysis: getAnalysis(job.id), valuation };
+  let verify = null;
+  if (variant === 'full') { const code = verifyCodeFor(job.id); const url = `${req.protocol}://${req.get('host')}/verify/${code}`; let qrDataUrl = null; try { qrDataUrl = await QRCode.toDataURL(url, { width: 160, margin: 1 }); } catch { /* QR optional */ } verify = { code, url, qrDataUrl }; }
+  const data = { job, inspection: getInspection(job.id), analysis: getAnalysis(job.id), valuation, verify };
   res.type('html').send(variant === 'summary' ? summaryReportHtml(data) : fullReportHtml(data));
 }));
 r.get('/:id/report.pdf', wrap(async (req, res) => {
@@ -154,6 +188,7 @@ r.get('/:id/report.pdf', wrap(async (req, res) => {
   const doc = new PDFDocument(); res.setHeader('Content-Type', 'application/pdf'); res.setHeader('Content-Disposition', `attachment; filename="valuation-${job.regNumber}-${variant}.pdf"`); doc.pipe(res);
   doc.fontSize(18).text('Valuation Techno — Valuation Report'); doc.moveDown().fontSize(12).text(`${job.make} ${job.model} (${job.year}) · ${job.regNumber}`).text(`Final Valuation: INR ${v.finalValuation}`).text(`Flag: ${v.flag} · Variance: ${v.variancePct}%`);
   if (variant === 'full') { doc.text(`AI Valuation: INR ${v.aiValuation} · Manual: INR ${v.manualValuation} · Market: INR ${v.marketValue}`); const a = getAnalysis(job.id); if (a) doc.text(`Damage total: INR ${a.damage.costBreakdown.totalDamageCost} · Fraud: ${a.fraud.riskLevel} (${a.fraud.fraudScore}/100)`); }
+  if (variant === 'full') { try { const code = verifyCodeFor(job.id); const url = `${req.protocol}://${req.get('host')}/verify/${code}`; const buf = await QRCode.toBuffer(url, { width: 140, margin: 1 }); doc.moveDown().fontSize(13).text('Verify This Report'); doc.image(buf, { width: 110 }); doc.fontSize(10).text(`Verification Code: ${code}`).text(url); } catch { /* QR optional */ } }
   doc.text('Generated by Valuation Techno · Smart Valuation. Safer Transactions.'); doc.end();
 }));
 

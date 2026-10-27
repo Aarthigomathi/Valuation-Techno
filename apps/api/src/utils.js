@@ -21,3 +21,6 @@ export function variancePct(manual, ai) {
   return round2((Math.abs(Number(manual) - Number(ai)) / Number(ai)) * 100);
 }
 export const isGreen = (v) => Number(v) <= 5;
+
+// Public report verification code (deterministic from the unguessable job id)
+export const verifyCodeFor = (jobId) => 'VT-' + crypto.createHash('sha256').update(String(jobId)).digest('hex').slice(0, 10).toUpperCase();

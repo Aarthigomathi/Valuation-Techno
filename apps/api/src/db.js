@@ -23,7 +23,13 @@ CREATE TABLE IF NOT EXISTS ledger(id TEXT PRIMARY KEY, jobId TEXT, type TEXT NOT
 CREATE TABLE IF NOT EXISTS notifications(id TEXT PRIMARY KEY, userId TEXT, title TEXT NOT NULL, body TEXT, channel TEXT NOT NULL DEFAULT 'PUSH', isRead INTEGER NOT NULL DEFAULT 0, createdAt TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS audit_log(id TEXT PRIMARY KEY, jobId TEXT, actorId TEXT, action TEXT NOT NULL, detail TEXT, createdAt TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS bank_feedback(id TEXT PRIMARY KEY, jobId TEXT UNIQUE NOT NULL, bankId TEXT NOT NULL, scoresJson TEXT NOT NULL, avgScore REAL NOT NULL, comment TEXT, createdAt TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS messages(id TEXT PRIMARY KEY, jobId TEXT NOT NULL, senderId TEXT NOT NULL, senderName TEXT, senderRole TEXT, body TEXT NOT NULL, createdAt TEXT NOT NULL);
 `);
+// Live inspector location columns (added without breaking existing databases)
+{ const cols = db.prepare('PRAGMA table_info(jobs)').all().map((c) => c.name);
+  if (!cols.includes('inspectorLat')) db.exec('ALTER TABLE jobs ADD COLUMN inspectorLat REAL');
+  if (!cols.includes('inspectorLng')) db.exec('ALTER TABLE jobs ADD COLUMN inspectorLng REAL');
+  if (!cols.includes('locationUpdatedAt')) db.exec('ALTER TABLE jobs ADD COLUMN locationUpdatedAt TEXT'); }
 const getSetting = (k, d) => { const r = db.prepare('SELECT value FROM settings WHERE key=?').get(k); return r ? r.value : d; };
 export const settings = {
   get allocationMode() { return getSetting('allocationMode', 'FIRST_COME'); },

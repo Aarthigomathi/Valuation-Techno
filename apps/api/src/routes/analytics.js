@@ -34,6 +34,14 @@ r.get('/analytics', wrap(async (req, res) => {
     avgVariance,
     fraud: { low: fraudRows.filter((f) => f.riskLevel === 'LOW').length, medium: fraudRows.filter((f) => f.riskLevel === 'MEDIUM').length, high: fraudRows.filter((f) => f.riskLevel === 'HIGH').length, avgScore: fraudRows.length ? round2(fraudRows.reduce((s, f) => s + f.fraudScore, 0) / fraudRows.length) : 0 },
     leaderboard, monthlyVolume: monthly,
+    series: (() => { const days = []; for (let i = 13; i >= 0; i--) { const d = new Date(); d.setDate(d.getDate() - i); const key = d.toISOString().slice(0, 10);
+      days.push({ date: key, label: d.toLocaleString('en-IN', { day: '2-digit', month: 'short' }),
+        jobs: c('SELECT COUNT(*) c FROM jobs WHERE substr(createdAt,1,10)=?', key).c,
+        revenue: c("SELECT COALESCE(SUM(amount),0) s FROM ledger WHERE type='BANK_TO_PLATFORM' AND substr(createdAt,1,10)=?", key).s }); } return days; })(),
+    banks: db.prepare(`SELECT u.id, COALESCE(u.bankName, u.name) bankName, COUNT(DISTINCT j.id) jobs,
+      COALESCE(SUM(CASE WHEN l.type='BANK_TO_PLATFORM' THEN l.amount END),0) settledValue,
+      (SELECT ROUND(AVG(f.avgScore),2) FROM bank_feedback f JOIN jobs fj ON fj.id=f.jobId WHERE fj.bankId=u.id) avgFeedback
+      FROM users u LEFT JOIN jobs j ON j.bankId=u.id LEFT JOIN ledger l ON l.jobId=j.id WHERE u.role='BANK' GROUP BY u.id ORDER BY jobs DESC`).all(),
     volumeForecastNextMonth: monthly.length ? Math.max(1, Math.round(monthly.at(-1).n * 1.12)) : 1,
     insight: avgVariance > 5 ? 'Variance is trending high — consider inspector calibration / retraining for repeated RED flags.' : 'Valuation variance is healthy (≤5% band). Green-flag auto-approval is working as designed.',
   });

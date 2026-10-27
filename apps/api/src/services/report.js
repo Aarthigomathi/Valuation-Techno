@@ -1,7 +1,7 @@
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const inr = (n) => '₹' + Number(n || 0).toLocaleString('en-IN');
 const base = (title, body) => `<!doctype html><html><head><meta charset="utf-8"><title>${esc(title)}</title><style>body{font-family:Arial,sans-serif;margin:32px;color:#12263a}h1{color:#0b4f8a}table{border-collapse:collapse;width:100%;margin:12px 0}td,th{border:1px solid #cbd5e1;padding:8px;text-align:left}.flag-GREEN{color:#15803d;font-weight:bold}.flag-RED{color:#dc2626;font-weight:bold}.badge{background:#e0f2fe;padding:2px 8px;border-radius:10px}</style></head><body>${body}</body></html>`;
-export function fullReportHtml({ job, inspection, analysis, valuation }) {
+export function fullReportHtml({ job, inspection, analysis, valuation, verify = null }) {
   const d = analysis.damage, f = analysis.fraud;
   return base(`Valuation Report ${job.regNumber}`, `<h1>Valuation Techno — Full Valuation Report (Bank)</h1>
   <p><span class="badge">${esc(job.regNumber)}</span> ${esc(job.make)} ${esc(job.model)} ${esc(job.variant || '')} (${job.year}, ${esc(job.fuel || '')}) · Loan Ref: ${esc(job.loanRef || '-')}</p>
@@ -13,7 +13,8 @@ export function fullReportHtml({ job, inspection, analysis, valuation }) {
   <h2>Fraud Risk (killfake.ai)</h2><p>Score: <b>${f.fraudScore}/100 (${esc(f.riskLevel)})</b></p><table><tr><th>Check</th><th>Status</th><th>Detail</th></tr>${f.checks.map((c) => `<tr><td>${esc(c.name)}</td><td>${esc(c.status)}</td><td>${esc(c.detail)}</td></tr>`).join('')}</table>
   <h2>Verification History</h2><p>Accidents: ${job.verification?.history?.accidentCount ?? '-'} · Claims: ${job.verification?.history?.claimCount ?? '-'} · Insurance valid: ${job.verification?.insurance?.valid ? 'Yes' : 'No'}</p>
   <h2>Inspection Evidence</h2><table><tr><th>Category</th><th>Captured At</th><th>Geo (lat,lng)</th><th>File</th></tr>${(inspection?.images || []).map((i) => `<tr><td>${esc(i.category)}</td><td>${esc(i.capturedAt || '')}</td><td>${esc(i.lat ?? '')}, ${esc(i.lng ?? '')}</td><td>${esc(i.originalName || i.filename || 'metadata-only')}</td></tr>`).join('')}</table>
-  <p>Odometer: ${inspection?.odometerReading ?? '-'} km · Generated ${new Date().toLocaleString('en-IN')} · Valuation Techno</p>`);
+  <p>Odometer: ${inspection?.odometerReading ?? '-'} km · Generated ${new Date().toLocaleString('en-IN')} · Valuation Techno</p>
+  ${verify ? `<h2>Verify This Report</h2><table><tr><td style="width:130px">${verify.qrDataUrl ? `<img src="${verify.qrDataUrl}" width="120" height="120" alt="Report verification QR code"/>` : ''}</td><td>Verification Code: <b>${esc(verify.code)}</b><br/>Scan the QR code or open:<br/><span class="badge">${esc(verify.url)}</span><br/>Anyone can confirm this report is genuine and untampered.</td></tr></table>` : ''}`);
 }
 export function summaryReportHtml({ job, valuation }) {
   return base(`Valuation Summary ${job.regNumber}`, `<h1>Valuation Techno — Valuation Summary</h1>

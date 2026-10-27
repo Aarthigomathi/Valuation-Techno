@@ -32,5 +32,13 @@ export async function openAuthed(path) {
   if (w) w.location = url; else { const a = document.createElement('a'); a.href = url; a.target = '_blank'; a.click(); }
   setTimeout(() => URL.revokeObjectURL(url), 60000);
 }
+export async function downloadAuthed(path, filename) {
+  const t = token();
+  const res = await fetch(path.startsWith('/api') ? path : BASE + path, { credentials: 'same-origin', headers: { ...(t ? { Authorization: `Bearer ${t}`, 'X-Auth-Token': t } : {}) } });
+  if (!res.ok) throw new Error(`Download failed (${res.status})`);
+  const blob = await res.blob(); const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
 export const inr = (n) => n === null || n === undefined ? '—' : '₹' + Number(n).toLocaleString('en-IN');
 export const fmtDate = (s) => s ? new Date(s).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) : '—';

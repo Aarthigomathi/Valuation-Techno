@@ -206,3 +206,43 @@ describe('Admin Control Centre management APIs', () => {
     await request(app).patch(`/api/admin/users/${seeker.id}/status`).set(auth(T.admin)).send({ status: 'ACTIVE' });
   });
 });
+
+describe('All-updates pack: QR verify, chat, live GPS, CSV, analytics series', () => {
+  it('QR verification: genuine report verifies publicly, fake code rejected', async () => {
+    const job = await createJob('TN38QR1111');
+    const images = imgs(11.0168, 76.9558, 'qr'); const ai = predictAi(job, images);
+    await request(app).post(`/api/jobs/${job.id}/accept`).set(auth(T.inspector));
+    await request(app).post(`/api/jobs/${job.id}/start`).set(auth(T.inspector));
+    const sub = await request(app).post(`/api/jobs/${job.id}/inspection`).set(auth(T.inspector)).send({ odometerReading: 45200, damages: [], manualValuation: ai, images, documents: [{ type: 'RC' }] });
+    expect(sub.status).toBe(201); expect(sub.body.status).toBe('REPORT_DELIVERED');
+    const detail = await request(app).get(`/api/jobs/${job.id}`).set(auth(T.bank));
+    expect(detail.body.verifyCode).toBeTruthy();
+    const pub = await request(app).get(`/api/verify/${detail.body.verifyCode}`); // no login needed
+    expect(pub.status).toBe(200); expect(pub.body.authentic).toBe(true); expect(pub.body.regNumber).toBe('TN38QR1111');
+    expect((await request(app).get('/api/verify/VT-FAKECODE0')).status).toBe(404);
+    const report = await request(app).get(`/api/jobs/${job.id}/report`).set(auth(T.bank));
+    expect(report.text).toContain('Verify This Report'); expect(report.text).toContain(detail.body.verifyCode);
+    // chat: bank + assigned inspector can talk; seeker is blocked
+    expect((await request(app).post(`/api/jobs/${job.id}/messages`).set(auth(T.bank)).send({ body: 'Please reach by 11 AM' })).status).toBe(201);
+    const msgs = await request(app).get(`/api/jobs/${job.id}/messages`).set(auth(T.inspector));
+    expect(msgs.status).toBe(200); expect(msgs.body.length >= 1 ? true : false).toBe(true); expect(msgs.body[0].body).toContain('11 AM');
+    expect((await request(app).get(`/api/jobs/${job.id}/messages`).set(auth(T.seeker))).status).toBe(403);
+    // live GPS: only the assigned inspector may share
+    expect((await request(app).post(`/api/jobs/${job.id}/location`).set(auth(T.bank)).send({ lat: 11.02, lng: 76.96 })).status).toBe(403);
+    expect((await request(app).post(`/api/jobs/${job.id}/location`).set(auth(T.inspector)).send({ lat: 11.02, lng: 76.96 })).status).toBe(200);
+    const after = await request(app).get(`/api/jobs/${job.id}`).set(auth(T.bank));
+    expect(after.body.inspectorLocation.lat).toBe(11.02);
+  });
+  it('CSV exports download for admin/bank, blocked for seeker', async () => {
+    const jobsCsv = await request(app).get('/api/admin/export/jobs.csv').set(auth(T.admin));
+    expect(jobsCsv.status).toBe(200); expect(jobsCsv.headers['content-type']).toContain('text/csv'); expect(jobsCsv.text).toContain('Reg Number');
+    const ledgerCsv = await request(app).get('/api/admin/export/ledger.csv').set(auth(T.bank));
+    expect(ledgerCsv.status).toBe(200); expect(ledgerCsv.text).toContain('Type,From,To,Amount');
+    expect((await request(app).get('/api/admin/export/jobs.csv').set(auth(T.seeker))).status).toBe(403);
+  });
+  it('analytics returns 14-day series and bank-wise performance', async () => {
+    const a = await request(app).get('/api/analytics').set(auth(T.admin));
+    expect(a.status).toBe(200); expect(a.body.series.length).toBe(14); expect(a.body.banks.length >= 1 ? true : false).toBe(true);
+    expect(typeof a.body.banks[0].jobs).toBe('number');
+  });
+});

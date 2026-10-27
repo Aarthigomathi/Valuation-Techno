@@ -1,5 +1,5 @@
 import { Component, useEffect, useState } from 'react';
-import { api, inr } from '../api.js';
+import { api, inr, fmtDate } from '../api.js';
 
 // Safety net: a crashing panel shows a message + recovery, never a white screen.
 export class ErrorBoundary extends Component {
@@ -89,6 +89,11 @@ export function LiveMap({ job }) {
     const labelY = Math.min(330, Math.max(58, cy + Math.sin(radians) * 158));
     return { inspector, label, labelWidth, markerX, markerY, labelX, labelY };
   });
+  const live = job.inspectorLocation;
+  const livePt = (() => { if (!live || job.vehicleLat == null) return null;
+    const kmPerLat = 111; const kmPerLng = 111 * Math.cos((Number(job.vehicleLat) * Math.PI) / 180); const rKm = Number(job.broadcastRadiusKm) || 25;
+    const dx = (Number(live.lng) - Number(job.vehicleLng)) * kmPerLng; const dy = (Number(live.lat) - Number(job.vehicleLat)) * kmPerLat;
+    return { x: cx + Math.max(-1.35, Math.min(1.35, dx / rKm)) * broadcastRadius, y: cy - Math.max(-1.1, Math.min(1.1, dy / rKm)) * broadcastRadius }; })();
   const vehicleLabel = `Vehicle · ${job.regNumber}`;
   const vehicleLabelWidth = Math.max(148, vehicleLabel.length * 7.2);
 
@@ -115,6 +120,11 @@ export function LiveMap({ job }) {
         </g>
       ))}
 
+      {livePt && <g>
+        <line x1={livePt.x} y1={livePt.y} x2={cx} y2={cy} stroke="#f59e0b" strokeWidth="2.5" strokeDasharray="7 6" className="route-line" />
+        <circle cx={livePt.x} cy={livePt.y} r="11" fill="#f59e0b" stroke="#fff" strokeWidth="2" className="hotspot" />
+        <text x={livePt.x} y={livePt.y - 18} textAnchor="middle" fontSize="11" fontWeight="800" fill="#fbbf24">INSPECTOR · LIVE</text>
+      </g>}
       <text x={cx} y={cy - 18} textAnchor="middle" fontSize="22">🚗</text>
       <circle cx={cx} cy={cy + 3} r="7" fill="#38bdf8" stroke="#0a1424" strokeWidth="2" />
       <rect x={cx - vehicleLabelWidth / 2} y={cy + 20} width={vehicleLabelWidth} height="30" rx="15" fill="#2563eb" />
@@ -127,6 +137,7 @@ export function LiveMap({ job }) {
       </span>)}
     </div>}
     {job.assignedInspector && <p style={{ color: '#34d399', fontWeight: 700, marginBottom: 0 }}>Assigned inspector: {job.assignedInspector.name}</p>}
+    {live && <p style={{ color: '#fbbf24', fontWeight: 700, marginBottom: 0 }}>📡 Inspector live location · updated {live.updatedAt ? new Date(live.updatedAt).toLocaleTimeString('en-IN') : 'just now'}</p>}
   </div>;
 }
 
@@ -193,6 +204,25 @@ export function ValuationDuel({ v }) {
 }
 
 
+
+export function ChatBox({ jobId, me }) {
+  const [msgs, setMsgs] = useState([]); const [text, setText] = useState(''); const [hidden, setHidden] = useState(false); const [err, setErr] = useState('');
+  useEffect(() => { let live = true;
+    const load = () => api(`/jobs/${jobId}/messages`).then((m) => { if (live) setMsgs(m); }).catch(() => setHidden(true));
+    load(); const id = setInterval(load, 6000); return () => { live = false; clearInterval(id); };
+  }, [jobId]);
+  if (hidden) return null;
+  const send = async () => { const body = text.trim(); if (!body) return; setErr('');
+    try { await api(`/jobs/${jobId}/messages`, { method: 'POST', body: JSON.stringify({ body }) }); setText(''); setMsgs(await api(`/jobs/${jobId}/messages`)); }
+    catch (e) { setErr(e.message); } };
+  return <div className="chatbox"><h3>💬 Job Chat <span className="muted">— Bank · Inspector · Admin</span></h3>
+    <div className="chat-msgs">{msgs.map((m) => <div key={m.id} className={`chat-msg ${m.senderId === me.id ? 'own' : ''}`}>
+      <b>{m.senderName} <span className="pill">{m.senderRole}</span></b><p>{m.body}</p><small>{fmtDate(m.createdAt)}</small></div>)}
+      {msgs.length === 0 && <p className="muted">No messages yet. Start the conversation about this job.</p>}</div>
+    <div className="chat-send"><input value={text} onChange={(e) => setText(e.target.value)} placeholder="Type a message about this job…" onKeyDown={(e) => { if (e.key === 'Enter') send(); }} />
+      <button type="button" onClick={send}>Send ➤</button></div>{err && <small style={{ color: '#fb7185' }}>{err}</small>}</div>;
+}
+
 // ---- Celebration effects: confetti bursts + animated success tick ----
 export function fireCelebration(message = 'Done!') {
   try { window.dispatchEvent(new CustomEvent('vt-celebrate', { detail: { message } })); } catch { /* noop */ }
@@ -255,5 +285,9 @@ export function AnalyticsPanel() {
   const fmax = Math.max(1, fraud.low, fraud.medium, fraud.high);
   return <div><div className="grid"><div className="card"><div className="muted">Total jobs</div><div className="stat">{Math.round(jobs)}</div></div><div className="card"><div className="muted">Settled value</div><div className="stat">{inr(settled)}</div></div><div className="card"><div className="muted">Green-flag rate</div><div className="stat">{a.greenPct}%</div></div><div className="card"><div className="muted">Avg variance</div><div className="stat">{a.avgVariance}%</div></div><div className="card"><div className="muted">Users online (live)</div><div className="stat">{a.onlineUsers}</div></div></div>
     <div className="card"><h3>🛡️ Fraud Risk Distribution (avg score {fraud.avgScore}/100)</h3>{bar('LOW', fraud.low, fmax, '#16a34a')}{bar('MEDIUM', fraud.medium, fmax, '#f59e0b')}{bar('HIGH', fraud.high, fmax, '#dc2626')}<p className="ok">🤖 AI Insight: {a.insight} Next-month volume forecast: ~{a.volumeForecastNextMonth} jobs.</p></div>
+    {(a.series || []).length > 0 && <div className="card"><h3>📊 Activity — Last 14 Days</h3>
+      <p className="muted">Jobs created per day</p><div className="series-chart">{a.series.map((d) => <div className="series-col" key={d.date}><span className="series-num">{d.jobs || ''}</span><div className="series-bar jobs-bar" style={{ height: `${Math.max(4, (d.jobs / Math.max(1, ...a.series.map((x) => x.jobs))) * 84)}px` }} title={`${d.label}: ${d.jobs} jobs`} /><small>{d.label.split(' ')[0]}</small></div>)}</div>
+      <p className="muted">Settlement revenue per day</p><div className="series-chart">{a.series.map((d) => <div className="series-col" key={d.date}><span className="series-num">{d.revenue ? '₹' + Math.round(d.revenue / 1000) + 'k' : ''}</span><div className="series-bar rev-bar" style={{ height: `${Math.max(4, (d.revenue / Math.max(1, ...a.series.map((x) => x.revenue))) * 84)}px` }} title={`${d.label}: ${inr(d.revenue)}`} /><small>{d.label.split(' ')[0]}</small></div>)}</div></div>}
+    {(a.banks || []).length > 0 && <div className="card"><h3>🏦 Bank-wise Performance</h3><table><thead><tr><th>Bank</th><th>Jobs</th><th>Settled Value</th><th>Avg Feedback</th></tr></thead><tbody>{a.banks.map((b) => <tr key={b.id}><td>{b.bankName}</td><td>{b.jobs}</td><td>{inr(b.settledValue)}</td><td>{b.avgFeedback ? `★ ${b.avgFeedback}` : '—'}</td></tr>)}</tbody></table></div>}
     <div className="card"><h3>🏆 Inspector Leaderboard</h3><table><thead><tr><th>Inspector</th><th>Rating</th><th>Rated jobs</th><th>Status</th></tr></thead><tbody>{leaderboard.map((u) => <tr key={u.id}><td>{u.name}</td><td>★ {u.rating}</td><td>{u.ratingCount}</td><td>{u.status}</td></tr>)}</tbody></table>{leaderboard.length === 0 && <p className="muted">No inspectors yet.</p>}</div></div>;
 }

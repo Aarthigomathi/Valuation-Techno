@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { api, token, sessionUser, setSession, clearSession, inr, fmtDate, openAuthed, logoutApi } from './api.js';
-import { FraudGauge, CarTwin, AiScanPanel, MarketChart, LiveMap, AnalyticsPanel, ErrorBoundary, CarShowcase, ValuationDuel, CelebrationHost, SuccessTick, fireCelebration } from './components/Advanced.jsx';
+import { FraudGauge, CarTwin, AiScanPanel, MarketChart, LiveMap, AnalyticsPanel, ErrorBoundary, CarShowcase, ValuationDuel, CelebrationHost, SuccessTick, fireCelebration, ChatBox } from './components/Advanced.jsx';
 import AdminControlCenter from './components/AdminDashboard.jsx';
 
 const PHASES = ['BROADCAST', 'ASSIGNED', 'INSPECTION_IN_PROGRESS', 'INSPECTION_SUBMITTED', 'AUDIT_REQUIRED', 'REPORT_DELIVERED', 'SETTLED'];
@@ -96,6 +96,22 @@ function BankFeedbackBox({ job, reload }) {
     <Btn action={async () => { await api(`/jobs/${job.id}/bank-feedback`, { method: 'POST', body: JSON.stringify(r) }); await reload(); }}>Submit Bank Feedback →</Btn></div>;
 }
 
+function LiveShare({ job }) {
+  const [on, setOn] = useState(false); const [msg, setMsg] = useState(''); const watch = useRef(null); const last = useRef(0);
+  useEffect(() => () => { if (watch.current != null && navigator.geolocation) navigator.geolocation.clearWatch(watch.current); }, []);
+  const toggle = () => {
+    if (on) { if (navigator.geolocation && watch.current != null) navigator.geolocation.clearWatch(watch.current); setOn(false); setMsg('Live location sharing stopped.'); return; }
+    if (!navigator.geolocation) { setMsg('GPS is not available on this device/browser.'); return; }
+    watch.current = navigator.geolocation.watchPosition((pos) => {
+      const t = Date.now(); if (t - last.current < 8000) return; last.current = t;
+      api(`/jobs/${job.id}/location`, { method: 'POST', body: JSON.stringify({ lat: pos.coords.latitude, lng: pos.coords.longitude }) })
+        .then(() => setMsg('📡 Live location is being shared with the bank.')).catch((e) => setMsg(e.message));
+    }, (e) => setMsg(e.message), { enableHighAccuracy: true });
+    setOn(true); setMsg('Starting live location sharing…');
+  };
+  return <div style={{ marginTop: 12 }}><Btn action={async () => toggle()}>{on ? '🛑 Stop Live Location' : '📡 Share Live Location'}</Btn>{msg && <span className="muted" style={{ marginLeft: 8 }}>{msg}</span>}</div>;
+}
+
 function JobDetail({ job, user, reload, onClose }) {
   if (!job) return null; const v = job.valuation;
   return <div className="card" style={{ border: '2px solid #38bdf8' }}><div style={{ display: 'flex', justifyContent: 'space-between' }}><h2>{job.make} {job.model} {job.variant || ''} ({job.year}) · {job.regNumber}</h2><Btn ghost action={async () => onClose()}>✕ Close</Btn></div><Stepper status={job.status} />
@@ -113,7 +129,10 @@ function JobDetail({ job, user, reload, onClose }) {
       {(user.role === 'BANK' || user.role === 'ADMIN') && job.status === 'REPORT_DELIVERED' && <Btn green action={async () => { await api(`/jobs/${job.id}/settle`, { method: 'POST' }); await reload(); }}>💰 Settle Payment</Btn>}
       {(user.role === 'ADMIN' || user.role === 'BANK') && job.status === 'AUDIT_REQUIRED' && user.role === 'BANK' && <span className="muted">⏳ Waiting for Admin audit (RED flag)</span>}
     </div>
+    {user.role === 'INSPECTOR' && job.assignedInspector?.id === user.id && ['ASSIGNED', 'INSPECTION_IN_PROGRESS'].includes(job.status) && <LiveShare job={job} />}
     {user.role === 'INSPECTOR' && ['ASSIGNED', 'INSPECTION_IN_PROGRESS'].includes(job.status) && <InspectionForm job={job} reload={reload} />}
+    {job.verifyCode && <p>🔐 Report Verification Code: <b>{job.verifyCode}</b> · <a href={`/verify/${job.verifyCode}`} target="_blank" rel="noreferrer">Open public verification page</a></p>}
+    {['BANK', 'INSPECTOR', 'ADMIN'].includes(user.role) && <ChatBox jobId={job.id} me={user} />}
     {user.role === 'ADMIN' && job.status === 'AUDIT_REQUIRED' && <AuditBox job={job} reload={reload} />}
     {user.role === 'LOAN_SEEKER' && job.status === 'REPORT_DELIVERED' && !job.rating && <RateBox job={job} reload={reload} />}
     {user.role === 'BANK' && ['REPORT_DELIVERED', 'SETTLED'].includes(job.status) && !job.bankFeedback && <BankFeedbackBox job={job} reload={reload} />}
@@ -149,6 +168,10 @@ function Dashboard() {
       prevStatus.current[j.id] = j.status;
     });
   }, [jobs]);
+  const [toasts, setToasts] = useState([]); const lastToast = useRef('');
+  useEffect(() => { const e = liveEvents[0]; if (!e || !e.at || e.at === lastToast.current) return; lastToast.current = e.at;
+    const id = `${e.at}-${Math.random()}`; setToasts((t) => [{ id, text: `${e.type.replaceAll('_', ' ')} ${e.regNumber || ''}` }, ...t].slice(0, 3));
+    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 6000); }, [liveEvents]);
   useEffect(() => { // live channel: updates the data, but market ticks must not force full reloads
     const proto = location.protocol === 'https:' ? 'wss' : 'ws'; const ws = new WebSocket(`${proto}://${location.host}/ws?token=${encodeURIComponent(token() || '')}`);
     ws.onopen = () => setLiveOn(true); ws.onclose = () => setLiveOn(false);
@@ -164,7 +187,7 @@ function Dashboard() {
   const toSettle = jobs.filter((j) => j.status === 'REPORT_DELIVERED');
   const earnings = ledger.filter((l) => ['INSPECTOR_INSTANT_PAY', 'INSPECTOR_BONUS'].includes(l.type)).reduce((s, l) => s + l.amount, 0);
   const open = (j) => { setSelId(j.id); document.getElementById('job-detail')?.scrollIntoView({ behavior: 'smooth' }); };
-  return <div><header className="topbar" style={{ background: meta.color }}><div><div className="brand">{meta.icon} Valuation <span>Techno</span></div><div className="tag">{meta.title} · {meta.home}</div></div>
+  return <div><div className="push-stack">{toasts.map((t) => <div key={t.id} className="push-toast">🔔 {t.text}</div>)}</div><header className="topbar" style={{ background: meta.color }}><div><div className="brand">{meta.icon} Valuation <span>Techno</span></div><div className="tag">{meta.title} · {meta.home}</div></div>
     <div style={{ textAlign: 'right' }}>{user.name} · <b>{user.role}</b>{user.role === 'INSPECTOR' ? ` · ★ ${user.rating}` : ''}<br /><Btn ghost action={async () => { await logoutApi(); nav('/'); }}>Logout</Btn></div></header>
   <div className="wrap">{err && <div className="err">{err}</div>}{banner && <div className="ok">{banner} <Btn ghost action={async () => setBanner('')}>OK</Btn></div>}
     <div className="toastbar"><span className="live-dot"></span> {liveOn ? 'LIVE — real-time updates connected (no refresh needed)' : 'Connecting live channel…'}{liveEvents[0] ? ` · Latest: ${liveEvents[0].type} ${liveEvents[0].regNumber || ''}` : ''}</div>
@@ -216,6 +239,18 @@ function Dashboard() {
     {tab === 'analytics' && <ErrorBoundary><AnalyticsPanel /></ErrorBoundary>}</>}
     <div id="job-detail">{sel && <ErrorBoundary><JobDetail job={sel} user={user} reload={reload} onClose={() => setSelId(null)} /></ErrorBoundary>}</div>
   </div></div>;
+}
+function VerifyPage() {
+  const { code } = useParams(); const [state, setState] = useState({ loading: true });
+  useEffect(() => { fetch(`/api/verify/${encodeURIComponent(code)}`).then(async (r) => { const d = await r.json().catch(() => ({})); setState({ loading: false, ok: r.ok, ...d }); }).catch(() => setState({ loading: false, ok: false })); }, [code]);
+  return <div className="wrap"><div className="card login" style={{ textAlign: 'center' }}><h1>Valuation Techno</h1>
+    {state.loading && <p className="muted">Checking report authenticity…</p>}
+    {!state.loading && state.ok && state.authentic && <><SuccessTick size={84} /><h2 style={{ color: '#34d399' }}>Genuine Report ✅</h2>
+      <p><b>{state.vehicle}</b> · {state.regNumber}</p><p>Final Valuation: <b>{inr(state.finalValuation)}</b></p>
+      <p className="muted">Status: {state.status} · Flag: {state.flag}{state.deliveredAt ? ` · Delivered: ${fmtDate(state.deliveredAt)}` : ''}</p>
+      <p className="muted">{state.message}</p></>}
+    {!state.loading && !state.authentic && <><h2 style={{ color: '#fb7185' }}>Not Verified ❌</h2><p className="muted">{state.error || 'This verification code does not match any genuine Valuation Techno report.'}</p></>}
+    <p><a href="/">← Open Valuation Techno</a></p></div></div>;
 }
 export default function App() {
   useEffect(() => { // scroll-reveal: cards rise in as they enter the screen
