@@ -13,12 +13,19 @@ Open **http://localhost:4000** and use one-click demo logins (or passwords below
 
 | Role | Email | Password |
 |---|---|---|
-| Bank | bank@valuation.techno | Bank@123 |
+| Bank (HDFC) | bank@valuation.techno | Bank@123 |
+| Bank (ICICI) | bank2@valuation.techno | Bank@123 |
 | Inspector ★4.6 | inspector@valuation.techno | Inspector@123 |
+| Inspector ★4.4 | inspector4@valuation.techno | Inspector@123 |
 | Inspector ★4.1 | inspector2@valuation.techno | Inspector@123 |
+| Inspector ★3.9 | inspector5@valuation.techno | Inspector@123 |
 | Inspector (Chennai — radius test) | inspector3@valuation.techno | Inspector@123 |
 | Loan Seeker | seeker@valuation.techno | Seeker@123 |
+| Loan Seeker (Kavya) | seeker2@valuation.techno | Seeker@123 |
+| Loan Seeker (Rajesh Kumar) | seeker3@valuation.techno | Seeker@123 |
 | Admin | admin@valuation.techno | Admin@123 |
+
+The app seeds **12 demo jobs across every status** (Broadcast → Settled, incl. one RED flag waiting in the Admin audit queue), 5 inspectors, 2 banks, ratings, bank feedback, chat messages and a full money ledger spread over the last 14 days — so every dashboard, chart and queue looks alive on first login.
 
 ## What is implemented (phase → where)
 1. **Job Creation** — bank creates job → VAHAN/IIB verification (RC, insurance, ownership, accident/claims) → radius broadcast → exclusive first-accept *or* rating-priority mode (Admin toggle).
