@@ -48,5 +48,15 @@ export async function downloadAuthed(path, filename) {
   const a = document.createElement('a'); a.href = objUrl; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(objUrl), 5000);
 }
+// Fetch an authenticated file (e.g. the report QR image) and return a blob object URL.
+// A plain <img src="/api/..."> cannot attach the login token, and preview/proxy frames
+// may not send the session cookie on image loads — the QR then shows as a broken icon.
+// Loading it through this authed fetch (same mechanism as reports) always works.
+export async function blobUrl(path) {
+  const t = token();
+  const res = await fetch(path.startsWith('/api') ? path : BASE + path, { credentials: 'same-origin', headers: { ...(t ? { Authorization: `Bearer ${t}`, 'X-Auth-Token': t } : {}) } });
+  if (!res.ok) throw new Error(`Failed (${res.status})`);
+  return URL.createObjectURL(await res.blob());
+}
 export const inr = (n) => n === null || n === undefined ? '—' : '₹' + Number(n).toLocaleString('en-IN');
 export const fmtDate = (s) => s ? new Date(s).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) : '—';

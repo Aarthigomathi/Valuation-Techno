@@ -112,6 +112,20 @@ function LiveShare({ job }) {
   return <div style={{ marginTop: 12 }}><Btn action={async () => toggle()}>{on ? '🛑 Stop Live Location' : '📡 Share Live Location'}</Btn>{msg && <span className="muted" style={{ marginLeft: 8 }}>{msg}</span>}</div>;
 }
 
+// QR code image loaded through the authenticated session (blob URL).
+// A plain <img src="/api/..."> shows a broken icon inside preview frames
+// because the image request cannot carry the login token / cookie.
+function QrImage({ jobId }) {
+  const [src, setSrc] = useState('');
+  useEffect(() => {
+    let url = ''; let alive = true;
+    blobUrl(`/jobs/${jobId}/qr`).then((u) => { url = u; if (alive) setSrc(u); else URL.revokeObjectURL(u); }).catch(() => {});
+    return () => { alive = false; if (url) URL.revokeObjectURL(url); };
+  }, [jobId]);
+  if (!src) return <div className="muted" style={{ width: 110, height: 110, display: 'grid', placeItems: 'center', background: '#fff', borderRadius: 10, fontSize: 12, color: '#33415c' }}>QR…</div>;
+  return <img src={src} alt="Report verification QR code" width="110" height="110" style={{ background: '#fff', padding: 6, borderRadius: 10 }} />;
+}
+
 function JobDetail({ job, user, reload, onClose }) {
   if (!job) return null; const v = job.valuation;
   return <div className="card" style={{ border: '2px solid #38bdf8' }}><div style={{ display: 'flex', justifyContent: 'space-between' }}><h2>{job.make} {job.model} {job.variant || ''} ({job.year}) · {job.regNumber}</h2><Btn ghost action={async () => onClose()}>✕ Close</Btn></div><Stepper status={job.status} />
@@ -131,7 +145,7 @@ function JobDetail({ job, user, reload, onClose }) {
     </div>
     {user.role === 'INSPECTOR' && job.assignedInspector?.id === user.id && ['ASSIGNED', 'INSPECTION_IN_PROGRESS'].includes(job.status) && <LiveShare job={job} />}
     {user.role === 'INSPECTOR' && ['ASSIGNED', 'INSPECTION_IN_PROGRESS'].includes(job.status) && <InspectionForm job={job} reload={reload} />}
-    {job.verifyCode && <div style={{ display: 'flex', gap: 14, alignItems: 'center', marginTop: 12, flexWrap: 'wrap' }}><img src={`/api/jobs/${job.id}/qr`} alt="Report verification QR code" width="110" height="110" style={{ background: '#fff', padding: 6, borderRadius: 10 }} /><p style={{ margin: 0 }}>🔐 <b>Report Verification</b><br />Verification Code: <b>{job.verifyCode}</b><br /><span className="muted">Scan this QR code (it is also printed at the top of the full report & PDF), or</span> <a href={`/verify/${job.verifyCode}`} target="_blank" rel="noreferrer">open the public verification page</a></p></div>}
+    {job.verifyCode && <div style={{ display: 'flex', gap: 14, alignItems: 'center', marginTop: 12, flexWrap: 'wrap' }}><QrImage jobId={job.id} /><p style={{ margin: 0 }}>🔐 <b>Report Verification</b><br />Verification Code: <b>{job.verifyCode}</b><br /><span className="muted">Scan this QR code (it is also printed at the top of the full report & PDF), or</span> <a href={`/verify/${job.verifyCode}`} target="_blank" rel="noreferrer">open the public verification page</a></p></div>}
     {['BANK', 'INSPECTOR', 'ADMIN'].includes(user.role) && <ChatBox jobId={job.id} me={user} />}
     {user.role === 'ADMIN' && job.status === 'AUDIT_REQUIRED' && <AuditBox job={job} reload={reload} />}
     {user.role === 'LOAN_SEEKER' && job.status === 'REPORT_DELIVERED' && !job.rating && <RateBox job={job} reload={reload} />}
