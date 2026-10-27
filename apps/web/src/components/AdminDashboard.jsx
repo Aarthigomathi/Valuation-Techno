@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { api, inr, fmtDate } from '../api.js';
+import { useEffect, useMemo, useState } from 'react';
+import { api, inr, fmtDate, downloadAuthed } from '../api.js';
 import { AnalyticsPanel, ErrorBoundary } from './Advanced.jsx';
 
 function AdminButton({ action, children, tone = '', small = false }) {
